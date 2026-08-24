@@ -1,2 +1,14 @@
-import AppShell from '@/components/AppShell';import { PageHeader,Badge } from '@/components/UI';import { requirePageUser } from '@/lib/page';import { readJson } from '@/lib/storage';import { getUsers } from '@/services/users';
-export default async function Groups(){const user=await requirePageUser(['teacher','admin']);const [groups,users]=await Promise.all([readJson('groups',[]),getUsers()]);return <AppShell user={user}><PageHeader eyebrow="Cohorts" title="Groups" description="Student groups and current project activity."/><div className="project-grid">{groups.map(g=><section className="panel" key={g.id}><div className="panel-title"><h3>{g.name}</h3><Badge>{g.studentIds.length} students</Badge></div>{g.studentIds.map(id=>{const s=users.find(u=>u.id===id);return <div className="project-row" key={id}><span><b>{s?.firstName} {s?.lastName}</b><small>@{s?.githubUsername}</small></span></div>})}</section>)}</div></AppShell>}
+import AppShell from '@/components/AppShell';
+import GroupManager from '@/components/GroupManager';
+import { PageHeader } from '@/components/UI';
+import { requirePageUser } from '@/lib/page';
+import { readJson } from '@/lib/storage';
+import { getUsers } from '@/services/users';
+import { defaultStudentPassword } from '@/lib/password';
+
+export default async function Groups(){
+  const user=await requirePageUser(['teacher','admin']);
+  const [groups,users]=await Promise.all([readJson('groups',[]),getUsers()]);
+  const students=users.filter(u=>u.role==='student');
+  return <AppShell user={user}><PageHeader eyebrow="Cohorts & accounts" title="Groups" description="Create groups, add or edit students, import a whole class from CSV and manage first-login passwords."/><GroupManager initialGroups={groups} users={students} defaultPassword={defaultStudentPassword()}/></AppShell>;
+}

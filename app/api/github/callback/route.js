@@ -2,6 +2,7 @@ import { currentUser, canAccessStudent } from '@/lib/auth';
 import { patchProject, getProject } from '@/services/projects';
 import { patchUser } from '@/services/users';
 import { updateJson } from '@/lib/storage';
+import { listInstallationRepos, syncProject } from '@/services/github';
 
 function redirect(req, path) {
   return Response.redirect(new URL(path, req.url));
@@ -50,7 +51,30 @@ export async function GET(req) {
     }
 
     await patchProject(projectId, { githubInstallationId: id });
-    return redirect(req, `/projects/${projectId}?github=connected`);
+
+    // If the student granted access to exactly one repository during installation,
+    // link it automatically to the project and sync commits immediately.
+    try {
+      const repos = await listInstallationRepos(id);
+      if (repos.length === 1) {
+        const repo = repos[0];
+        await patchProject(projectId, {
+          githubOwner: repo.owner.login,
+          githubRepo: repo.name,
+          defaultBranch: repo.default_branch || 'main',
+          lastSyncedAt: null,
+        });
+        try { await syncProject(projectId); } catch (syncError) {
+          console.error('Initial GitHub sync failed:', syncError);
+        }
+        return redirect(req, `/projects/${projectId}?github=linked`);
+      }
+    } catch (repoError) {
+      console.error('Could not auto-link GitHub repository:', repoError);
+    }
+
+    // Multiple repositories: return to the project and let the student choose one.
+    return redirect(req, `/projects/${projectId}?github=choose_repo`);
   } catch (error) {
     console.error('GitHub callback failed:', error);
     const message = encodeURIComponent(error instanceof Error ? error.message : 'Unknown callback error');

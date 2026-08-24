@@ -74,9 +74,17 @@ export async function POST(req){
 
     if(body.action==='deleteStudent'){
       const studentId=z.string().parse(body.studentId);
+      const projects=await readJson('projects',[]);const projectIds=new Set(projects.filter(p=>p.studentId===studentId).map(p=>p.id));
+      const [commits,feedback,assessments,reviews,attendance]=await Promise.all([readJson('commits',[]),readJson('feedback',[]),readJson('assessments',[]),readJson('aiReviews',[]),readJson('attendance',[])]);
       await Promise.all([
         writeJson('users',users.filter(u=>u.id!==studentId)),
-        writeJson('groups',groups.map(g=>({...g,studentIds:(g.studentIds||[]).filter(x=>x!==studentId)})))
+        writeJson('groups',groups.map(g=>({...g,studentIds:(g.studentIds||[]).filter(x=>x!==studentId)}))),
+        writeJson('projects',projects.filter(p=>p.studentId!==studentId)),
+        writeJson('commits',commits.filter(c=>!projectIds.has(c.repositoryId))),
+        writeJson('feedback',feedback.filter(f=>f.studentId!==studentId&&!projectIds.has(f.projectId))),
+        writeJson('assessments',assessments.filter(a=>a.studentId!==studentId&&!projectIds.has(a.projectId))),
+        writeJson('aiReviews',reviews.filter(r=>!projectIds.has(r.projectId))),
+        writeJson('attendance',attendance.filter(a=>a.studentId!==studentId))
       ]);return ok({});
     }
 

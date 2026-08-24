@@ -1,0 +1,30 @@
+[
+  {
+    "id": "assignment_weather_demo",
+    "title": "Weather App",
+    "slug": "weather-app",
+    "groupId": "group_ipa23",
+    "teacherId": "teacher_001",
+    "description": "Izstrādāt laikapstākļu lietotni, kas iegūst aktuālos laikapstākļu datus no ārēja API un korekti attēlo kļūdu stāvokļus.",
+    "requirements": [
+      "Pilsētas meklēšana",
+      "Ārēja weather API izmantošana",
+      "Temperatūras un laikapstākļu attēlošana",
+      "Loading un error stāvokļi",
+      "Responsīvs interfeiss",
+      "Regulāra Git commit vēsture"
+    ],
+    "technologies": ["JavaScript", "API", "CSS"],
+    "rubric": [
+      {"name":"Funkcionalitāte","max":5},
+      {"name":"API izmantošana","max":3},
+      {"name":"Koda struktūra","max":3},
+      {"name":"UI / UX","max":2},
+      {"name":"Git workflow","max":2}
+    ],
+    "startDate": "2026-08-24",
+    "deadline": "2026-09-10",
+    "status": "published",
+    "createdAt": "2026-08-24T11:00:00.000Z"
+  }
+]

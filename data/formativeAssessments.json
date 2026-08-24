@@ -1,0 +1,18 @@
+[
+  {
+    "id": "formative_weather_001",
+    "assignmentId": "assignment_weather_demo",
+    "title": "Formatīvais #1 — projekta sākuma progress",
+    "date": "2026-08-26",
+    "description": "Vērtējam līdz šim izdarīto darbu un projekta attīstības regularitāti.",
+    "criteria": [
+      {"name":"Projekta struktūra","max":3},
+      {"name":"API pieslēgums","max":3},
+      {"name":"Git progress","max":2},
+      {"name":"Darba regularitāte","max":2}
+    ],
+    "createdBy": "teacher_001",
+    "createdAt": "2026-08-24T11:00:00.000Z",
+    "results": []
+  }
+]

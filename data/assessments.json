@@ -1,0 +1,3 @@
+[
+  {"id":"assessment_001","projectId":"project_001","studentId":"student_001","teacherId":"teacher_001","criteria":[{"name":"Program functionality","score":4,"max":5},{"name":"Code quality","score":4,"max":5},{"name":"Git usage","score":2,"max":3},{"name":"Security","score":1,"max":2},{"name":"Documentation","score":4,"max":5},{"name":"Presentation","score":4,"max":5}],"total":19,"maxTotal":25,"percent":76,"grade":8,"updatedAt":"2026-08-21T12:00:00.000Z"}
+]

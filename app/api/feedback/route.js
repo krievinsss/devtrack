@@ -1,0 +1,3 @@
+import { z } from 'zod'; import { requireApiUser,fail,ok } from '@/lib/http'; import { addFeedback } from '@/services/feedback'; import { updateJson } from '@/lib/storage';
+const schema=z.object({studentId:z.string(),projectId:z.string(),type:z.enum(['positive','improvement','general']),text:z.string().min(2).max(2000)});
+export async function POST(req){const auth=await requireApiUser(['teacher','admin']);if(auth.error)return auth.error;try{const item=await addFeedback(schema.parse(await req.json()),auth.user);await updateJson('auditLogs',[],a=>[{id:crypto.randomUUID(),actorId:auth.user.id,action:'feedback.added',targetId:item.projectId,createdAt:new Date().toISOString()},...a]);return ok({item});}catch(e){return fail(e.message,400,e?.issues)}}

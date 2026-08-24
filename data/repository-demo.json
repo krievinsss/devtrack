@@ -1,0 +1,12 @@
+{
+  "project_001": {
+    "tree":[
+      {"path":"app","type":"tree"},{"path":"app/Http","type":"tree"},{"path":"app/Http/Controllers","type":"tree"},{"path":"app/Http/Controllers/ReservationController.php","type":"blob"},{"path":"database","type":"tree"},{"path":"database/migrations","type":"tree"},{"path":"database/migrations/2026_08_01_create_reservations_table.php","type":"blob"},{"path":"resources","type":"tree"},{"path":"resources/views","type":"tree"},{"path":"resources/views/dashboard.blade.php","type":"blob"},{"path":"routes","type":"tree"},{"path":"routes/web.php","type":"blob"},{"path":"README.md","type":"blob"}
+    ],
+    "files": {
+      "app/Http/Controllers/ReservationController.php":"<?php\n\nnamespace App\\Http\\Controllers;\n\nuse App\\Models\\Reservation;\nuse Illuminate\\Http\\Request;\n\nclass ReservationController extends Controller\n{\n    public function store(Request $request)\n    {\n        $data = $request->validate([\n            'car_id' => ['required', 'exists:cars,id'],\n            'starts_at' => ['required', 'date'],\n            'ends_at' => ['required', 'date', 'after:starts_at'],\n        ]);\n\n        $reservation = $request->user()->reservations()->create($data);\n\n        return redirect()->route('reservations.show', $reservation);\n    }\n}\n",
+      "routes/web.php":"<?php\n\nuse App\\Http\\Controllers\\ReservationController;\nuse Illuminate\\Support\\Facades\\Route;\n\nRoute::middleware('auth')->group(function () {\n    Route::resource('reservations', ReservationController::class);\n});\n",
+      "README.md":"# AutoRent\n\nQualification project demo repository used by DevTrack.\n"
+    }
+  }
+}

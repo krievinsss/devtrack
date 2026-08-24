@@ -1,0 +1,10 @@
+[
+  {"sha":"a713c28d4a1","repositoryId":"project_001","author":"Jānis Bērziņš","message":"Add product validation","timestamp":"2026-08-23T16:10:00.000Z","additions":48,"deletions":12,"filesChanged":7,"branch":"main"},
+  {"sha":"09bc1f0e2ca","repositoryId":"project_001","author":"Jānis Bērziņš","message":"Refactor reservation service","timestamp":"2026-08-22T14:20:00.000Z","additions":82,"deletions":51,"filesChanged":5,"branch":"main"},
+  {"sha":"f42c81a889e","repositoryId":"project_001","author":"Jānis Bērziņš","message":"Create booking migration and model","timestamp":"2026-08-20T11:05:00.000Z","additions":101,"deletions":4,"filesChanged":4,"branch":"main"},
+  {"sha":"98dd731f411","repositoryId":"project_001","author":"Jānis Bērziņš","message":"Fix navbar mobile state","timestamp":"2026-08-18T15:40:00.000Z","additions":23,"deletions":17,"filesChanged":2,"branch":"main"},
+  {"sha":"1c241ce77ad","repositoryId":"project_001","author":"Jānis Bērziņš","message":"Add admin dashboard cards","timestamp":"2026-08-15T09:12:00.000Z","additions":146,"deletions":21,"filesChanged":8,"branch":"main"},
+  {"sha":"6d811e901cd","repositoryId":"project_001","author":"Jānis Bērziņš","message":"Initial authentication flow","timestamp":"2026-08-10T13:33:00.000Z","additions":312,"deletions":7,"filesChanged":12,"branch":"main"},
+  {"sha":"28a7e4ff28a","repositoryId":"project_002","author":"Anna Kalniņa","message":"Polish event form accessibility","timestamp":"2026-08-22T09:00:00.000Z","additions":38,"deletions":16,"filesChanged":3,"branch":"main"},
+  {"sha":"72b271c92be","repositoryId":"project_003","author":"Mārtiņš Ozols","message":"setup","timestamp":"2026-08-09T09:00:00.000Z","additions":210,"deletions":0,"filesChanged":9,"branch":"main"}
+]

@@ -1,0 +1,2 @@
+import { requireApiUser,fail,ok } from '@/lib/http';import { listInstallationRepos } from '@/services/github';
+export async function GET(req){const auth=await requireApiUser();if(auth.error)return auth.error;try{const id=new URL(req.url).searchParams.get('installationId');if(!id)return fail('installationId required');const repos=await listInstallationRepos(id);return ok({repos:repos.map(r=>({id:r.id,name:r.name,fullName:r.full_name,private:r.private,defaultBranch:r.default_branch,owner:r.owner.login}))});}catch(e){return fail(e.message,502)}}

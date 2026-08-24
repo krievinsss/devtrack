@@ -1,0 +1,5 @@
+[
+  {"id":"feedback_001","studentId":"student_001","projectId":"project_001","teacherId":"teacher_001","type":"positive","text":"Datubāzes struktūra ir pārdomāta un attiecības izmantotas korekti.","createdAt":"2026-08-18T12:00:00.000Z"},
+  {"id":"feedback_002","studentId":"student_001","projectId":"project_001","teacherId":"teacher_001","type":"improvement","text":"Commit ziņojumiem vajadzētu precīzāk aprakstīt izmaiņas.","createdAt":"2026-08-19T12:00:00.000Z"},
+  {"id":"feedback_003","studentId":"student_001","projectId":"project_001","teacherId":"teacher_001","type":"general","text":"Progress ir stabils. Nākamais fokuss — server-side validācija un testu pārklājums.","createdAt":"2026-08-20T12:00:00.000Z"}
+]

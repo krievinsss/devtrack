@@ -1,0 +1,2 @@
+import { z } from 'zod';import { requireApiUser,fail,ok } from '@/lib/http';import { syncDeskplan } from '@/services/deskplan';
+export async function POST(req){const auth=await requireApiUser(['teacher','admin']);if(auth.error)return auth.error;try{const {studentId}=z.object({studentId:z.string()}).parse(await req.json());return ok({attendance:await syncDeskplan(studentId)});}catch(e){return fail(e.message,502)}}

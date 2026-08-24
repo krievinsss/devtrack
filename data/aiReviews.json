@@ -1,0 +1,3 @@
+[
+  {"id":"review_001","projectId":"project_001","createdBy":"teacher_001","createdAt":"2026-08-22T10:00:00.000Z","architecture":8,"codeQuality":7,"security":6,"database":9,"gitWorkflow":7,"documentation":7,"suggestedPoints":18,"maxPoints":25,"positives":["Laravel relationships are structured well","Controllers are separated by responsibility","Database migrations are consistent"],"issues":[{"title":"Missing validation in one write path","file":"app/Http/Controllers/UserController.php","line":74},{"title":"Possible N+1 query","file":"app/Http/Controllers/OrdersController.php","line":31}],"recommendations":["Add feature tests for reservation flow","Use Form Request validation consistently"]}
+]

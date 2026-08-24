@@ -1,0 +1,5 @@
+[
+  {"studentId":"student_001","percentage":87,"present":42,"late":4,"absent":6,"consultations":2,"source":"deskplan","syncedAt":"2026-08-24T07:00:00.000Z"},
+  {"studentId":"student_002","percentage":94,"present":49,"late":1,"absent":3,"consultations":1,"source":"deskplan","syncedAt":"2026-08-24T07:00:00.000Z"},
+  {"studentId":"student_003","percentage":58,"present":29,"late":8,"absent":13,"consultations":0,"source":"deskplan","syncedAt":"2026-08-24T07:00:00.000Z"}
+]

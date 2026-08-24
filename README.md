@@ -2,19 +2,60 @@
 
 **More than grades. Real progress.**
 
-DevTrack is a Vercel-friendly Next.js platform for programming teachers and students. It combines projects, GitHub activity, code browsing, commit analytics, teacher feedback, configurable assessment, AI code review and Deskplan attendance into one developer-style workspace.
+DevTrack is a Vercel-friendly Next.js platform for programming teachers and students. It combines teacher-assigned projects, GitHub activity, a per-project development diary, formative assessment, final assessment, teacher feedback, private AI-assisted code review and Deskplan attendance.
+
+## Core teaching workflow
+
+1. Teacher opens **Assignments**.
+2. Creates a project once for a group: title, full task, requirements, technologies, start date, deadline and final rubric.
+3. DevTrack automatically creates one student project instance for every student in the selected group.
+4. Student opens the assigned project and links their own GitHub repository.
+5. The GitHub App installation is reused for the student's future projects; each project only needs a repository selection. If a new repository is not visible, **Manage GitHub access** lets the student add it to the existing GitHub App installation.
+6. Every project has a **Project Diary**.
+7. Teacher can announce a formative assessment once at Assignment level. The title, date, description and criteria become visible to every student immediately.
+8. Teacher grades the group from one screen. Saving a student's result immediately publishes that student's score, criterion breakdown and feedback into their project diary.
+9. Teacher feedback is also shown chronologically in the same diary.
+10. Final assessment stays separate and uses the Assignment rubric.
+
+Student navigation intentionally contains no AI pages, AI scores or AI-generated labels. AI review is a private teacher/admin tool only.
+
+## Student project workspace
+
+Student tabs:
+
+- Overview — assignment, requirements and final rubric
+- Diary — announced formative assessments, formative results and teacher feedback
+- Code — read-only GitHub repository browser
+- Commits — Git history
+- Progress — activity charts and contribution heatmap
+- Assessment — teacher-controlled final result
+
+The student dashboard also surfaces recent project diary updates so newly announced formative assessments and newly published results are visible without opening every project.
+
+## Private teacher review
+
+Teacher/admin users can run a private code review. The server sends structured evidence to the configured OpenAI API:
+
+- assignment description
+- requirements
+- final rubric
+- selected repository files
+- recent Git history
+- formative assessment history for that student
+- existing teacher feedback
+
+The result is never exposed to students. It is an internal teacher aid and never sets the final grade automatically.
 
 ## Stack
 
-- Next.js 16 App Router + React 19
+- Next.js 16 + React 19
 - JavaScript
-- CSS (custom SaaS design system)
 - Vercel Serverless Route Handlers
 - JSON service/data layer
-- Local JSON storage in development
-- Vercel Blob JSON persistence in production
+- local JSON storage in development
+- private Vercel Blob JSON persistence in production
 - GitHub App + REST API + signed push webhooks
-- OpenAI Responses API structured review
+- OpenAI Responses API
 - Deskplan API adapter
 
 ## Quick start
@@ -25,8 +66,6 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
-
 Demo password: `Demo123!` unless `DEVTRACK_DEMO_PASSWORD` is changed.
 
 Demo accounts:
@@ -36,65 +75,45 @@ Demo accounts:
 
 ## Production storage
 
-A Vercel deployment cannot use its local filesystem as durable writable storage. DevTrack therefore keeps storage behind `lib/storage.js`:
+Vercel does not provide durable writable local filesystem storage. `lib/storage.js` therefore uses:
 
 - local development: `/data/*.json`
-- Vercel: the same JSON documents stored as private Vercel Blob objects when `BLOB_READ_WRITE_TOKEN` is configured
+- production with `BLOB_READ_WRITE_TOKEN`: private Vercel Blob JSON documents
 
-This keeps the MVP JSON-first and allows the storage adapter to be replaced later with PostgreSQL / Neon / Supabase without rewriting UI or business logic.
-
-Create a private Vercel Blob store and connect it to the Vercel project. The `BLOB_READ_WRITE_TOKEN` environment variable is then available to the app.
+The service layer keeps business logic independent of the storage backend so PostgreSQL / Neon / Supabase can replace the JSON adapter later.
 
 ## Environment variables
-
-See `.env.example`.
-
-Required before production:
 
 ```text
 AUTH_SECRET
 DEVTRACK_DEMO_PASSWORD
 NEXT_PUBLIC_APP_URL
 BLOB_READ_WRITE_TOKEN
-```
 
-For GitHub:
-
-```text
 GITHUB_APP_ID
 GITHUB_APP_SLUG
 GITHUB_CLIENT_ID
 GITHUB_CLIENT_SECRET
 GITHUB_PRIVATE_KEY
 GITHUB_WEBHOOK_SECRET
-```
 
-For AI:
-
-```text
 OPENAI_API_KEY
 OPENAI_MODEL
-```
 
-For Deskplan:
-
-```text
 DESKPLAN_API_URL
 DESKPLAN_API_KEY
 ```
 
-## GitHub App setup
-
-Create a GitHub App in GitHub Developer Settings.
+## GitHub App
 
 Recommended repository permissions:
 
-- Metadata: read (implicit)
+- Metadata: read
 - Contents: read
 
 Subscribe to:
 
-- `push`
+- push
 
 Webhook URL:
 
@@ -102,141 +121,66 @@ Webhook URL:
 https://YOUR_DOMAIN/api/webhooks/github
 ```
 
-Webhook secret must equal `GITHUB_WEBHOOK_SECRET`.
-
 Setup / callback URL:
 
 ```text
 https://YOUR_DOMAIN/api/github/callback
 ```
 
-The app is read-only. DevTrack does not request permission to push, edit or delete repository content.
+The app is read-only. DevTrack does not request permission to push, edit or delete student repository content.
 
-`services/github.js` creates short-lived installation tokens server-side. GitHub secrets and private keys are never exposed to the browser.
+After the first student installation, `githubInstallationId` is persisted on the student and copied to that student's unlinked projects. Future group assignments inherit the same installation automatically. A separate repository is still selected for every project.
 
-## GitHub repository linking
-
-The MVP contains the GitHub App installation route and repository API. A production UI can use:
+## Data model additions
 
 ```text
-GET /api/github/install?projectId=project_001
-GET /api/github/repos?installationId=...
+Assignment
+  id
+  groupId
+  description
+  requirements[]
+  technologies[]
+  rubric[]
+  startDate
+  deadline
+
+Project
+  assignmentId
+  studentId
+  githubInstallationId
+  githubOwner
+  githubRepo
+
+FormativeAssessment
+  assignmentId
+  title
+  date
+  description
+  criteria[]
+  results[]
+
+FormativeResult
+  studentId
+  scores[]
+  positive
+  improvement
+  feedback
+  publishedAt
 ```
 
-After selecting a repository, save `githubOwner`, `githubRepo`, `defaultBranch` and `githubInstallationId` through the project service/admin flow. Demo projects intentionally render realistic repository data before a real repository is linked.
+## Security
 
-## GitHub webhook security
+- third-party secrets remain server-side
+- signed HttpOnly session cookie
+- role checks on API and pages
+- students cannot open another student's project
+- AI review endpoint requires teacher/admin role
+- `/ai-reviews` requires teacher/admin role
+- student UI contains no AI review navigation or AI scores
+- GitHub repository access is read-only
+- GitHub webhook payload is validated with `X-Hub-Signature-256`
 
-`/api/webhooks/github` validates `X-Hub-Signature-256` with HMAC SHA-256 and `GITHUB_WEBHOOK_SECRET` before parsing/storing a payload.
-
-Only `push` is processed by the MVP. Stored history is deduplicated by commit SHA.
-
-## OpenAI setup
-
-Configure `OPENAI_API_KEY` and optionally `OPENAI_MODEL`.
-
-Teachers can run AI review from a project workspace. The server collects:
-
-- assignment requirements
-- repository tree
-- selected code files
-- recent commit history
-
-The OpenAI call returns a strict JSON schema containing architecture, code quality, security, database, Git workflow, documentation, positives, issues, recommendations and suggested points.
-
-AI points are a recommendation only. The teacher remains responsible for the final assessment.
-
-If no OpenAI key is configured, the seeded demo project uses the demo review so the interface remains testable.
-
-## Deskplan setup
-
-`services/deskplan.js` is an isolated adapter. Set the API base URL and API key, then adapt the endpoint/response mapping to the concrete Deskplan API contract if it differs from:
-
-```text
-GET /students/:deskplanUserId/attendance
-```
-
-DevTrack treats Deskplan as the attendance source of truth and stores only a synchronized snapshot for display and risk analysis.
-
-## Architecture
-
-```text
-app/
-  api/
-  dashboard/
-  students/
-  projects/
-  groups/
-  attendance/
-  ai-reviews/
-  assessments/
-components/
-  AppShell.js
-  DashboardViews.js
-  ProjectWorkspace.js
-  Charts.js
-  UI.js
-lib/
-  auth.js
-  http.js
-  page.js
-  storage.js
-services/
-  analytics.js
-  assessments.js
-  deskplan.js
-  feedback.js
-  github.js
-  openai.js
-  projects.js
-  users.js
-data/
-  users.json
-  groups.json
-  projects.json
-  commits.json
-  attendance.json
-  feedback.json
-  assessments.json
-  aiReviews.json
-  auditLogs.json
-```
-
-## Security notes
-
-- All third-party secrets remain server-side.
-- Auth session is a signed JWT stored in an HttpOnly, SameSite=Lax cookie.
-- Production cookies use `Secure`.
-- API routes perform authentication and role checks.
-- Project/file access checks prevent a student from opening another student's project through the API.
-- GitHub webhook signatures are validated before the payload is trusted.
-- Repository access is read-only.
-- OpenAI review runs only on explicit teacher action in the MVP.
-- Replace the shared demo-password login with school SSO / per-user password credentials before a real school rollout.
-- Add CSRF protection for sensitive cookie-authenticated write operations before internet-wide production use if cross-site flows are introduced.
-
-## Assessment
-
-Seeded example criteria:
-
-- Program functionality 0–5
-- Code quality 0–5
-- Git usage 0–3
-- Security 0–2
-- Documentation 0–5
-- Presentation 0–5
-
-Grade mapping is stored in `data/settings.json` and is therefore replaceable/configurable.
-
-## Risk model
-
-The MVP marks students from signals such as:
-
-- attendance below 60%
-- no Git activity for more than 14 days
-- moderate inactivity / attendance warnings
-
-Risk indicators are informational and never set the final grade.
+Before school-wide production use, replace shared demo-password auth with per-user credentials or school SSO and move high-concurrency storage to PostgreSQL/Neon/Supabase.
 
 ## Deploy to Vercel
 
@@ -245,15 +189,4 @@ npm install
 npm run build
 ```
 
-Then:
-
-1. Push this folder to GitHub.
-2. Import the repository in Vercel.
-3. Connect a private Vercel Blob store.
-4. Add environment variables.
-5. Deploy.
-6. Configure the GitHub App callback and webhook URLs to the deployed domain.
-
-## Next production steps
-
-The included code is a complete functional MVP foundation. Before a school-wide deployment, the most important upgrades are per-user/SSO authentication, a PostgreSQL adapter for higher write concurrency, real Deskplan endpoint mapping, a repository-selection form after GitHub App installation, admin CRUD for users/groups/projects, and automated tests around authorization and webhook handling.
+Then push/import the repository in Vercel, configure Vercel Blob and environment variables, and set the GitHub App callback/webhook URLs to the production domain.

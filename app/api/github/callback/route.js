@@ -1,7 +1,6 @@
-import { currentUser, canAccessStudent } from '@/lib/auth';
+import { currentUser } from '@/lib/auth';
 import { patchProject, getProject } from '@/services/projects';
 import { patchUser } from '@/services/users';
-import { updateJson } from '@/lib/storage';
 import { listInstallationRepos, syncProject } from '@/services/github';
 
 function redirect(req, path) {
@@ -16,6 +15,7 @@ export async function GET(req) {
   try {
     const user = await currentUser();
     if (!user) return redirect(req, '/login');
+    if (user.role !== 'student') return redirect(req, '/projects?github=student_only');
 
     const url = new URL(req.url);
     const installationId = url.searchParams.get('installation_id');
@@ -30,16 +30,19 @@ export async function GET(req) {
     }
 
     const project = projectId ? await getProject(projectId) : null;
-    if (!installationId || !project || !canAccessStudent(user, project.studentId)) return redirect(req, '/projects?github=error');
+    if (!installationId || !project || project.studentId !== user.id) return redirect(req, '/projects?github=error');
 
     const id = Number(installationId);
     if (!Number.isFinite(id)) return redirect(req, '/projects?github=invalid_installation');
 
-    if (user.role === 'student') {
-      await patchUser(user.id, { githubInstallationId: id, githubConnectedAt: new Date().toISOString() });
-      await updateJson('projects', [], items => items.map(p => p.studentId === user.id && !p.githubInstallationId ? { ...p, githubInstallationId: id } : p));
-    }
+    // The GitHub App installation belongs to the student account.
+    await patchUser(user.id, {
+      githubInstallationId: id,
+      githubConnectedAt: new Date().toISOString(),
+    });
 
+    // Only the current student project receives this installation immediately.
+    // Other projects will reuse the student's installation when the student selects a repo.
     await patchProject(projectId, { githubInstallationId: id });
 
     try {
@@ -55,15 +58,17 @@ export async function GET(req) {
           defaultBranch: repo.default_branch || 'main',
           lastSyncedAt: null,
         });
-        try { await syncProject(projectId); } catch (syncError) { console.error('Initial GitHub sync failed:', syncError); }
+        try { await syncProject(projectId); } catch (syncError) {
+          console.error('Initial GitHub sync failed:', syncError);
+        }
         return redirect(req, `/projects/${projectId}?github=linked`);
       }
 
       console.log('GitHub installation connected; repository selection required', {
+        studentId: user.id,
         projectId,
         installationId: id,
         repositoryCount: repos.length,
-        repositories: repos.map(r => r.full_name),
       });
     } catch (repoError) {
       console.error('Could not inspect GitHub installation repositories:', repoError);

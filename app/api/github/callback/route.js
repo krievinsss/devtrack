@@ -1,7 +1,7 @@
 import { currentUser } from '@/lib/auth';
 import { patchProject, getProject } from '@/services/projects';
 import { patchUser } from '@/services/users';
-import { listInstallationRepos, syncProject } from '@/services/github';
+import { listInstallationRepos } from '@/services/github';
 
 function redirect(req, path) {
   return Response.redirect(new URL(path, req.url));
@@ -35,14 +35,10 @@ export async function GET(req) {
     const id = Number(installationId);
     if (!Number.isFinite(id)) return redirect(req, '/projects?github=invalid_installation');
 
-    // The GitHub App installation belongs to the student account.
     await patchUser(user.id, {
       githubInstallationId: id,
       githubConnectedAt: new Date().toISOString(),
     });
-
-    // Only the current student project receives this installation immediately.
-    // Other projects will reuse the student's installation when the student selects a repo.
     await patchProject(projectId, { githubInstallationId: id });
 
     try {
@@ -58,10 +54,9 @@ export async function GET(req) {
           defaultBranch: repo.default_branch || 'main',
           lastSyncedAt: null,
         });
-        try { await syncProject(projectId); } catch (syncError) {
-          console.error('Initial GitHub sync failed:', syncError);
-        }
-        return redirect(req, `/projects/${projectId}?github=linked`);
+        // Do not block the GitHub callback with a potentially long commit sync.
+        // The project UI displays a loader and starts the sync after this redirect.
+        return redirect(req, `/projects/${projectId}?github=syncing`);
       }
 
       console.log('GitHub installation connected; repository selection required', {

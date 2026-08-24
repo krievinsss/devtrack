@@ -10,6 +10,47 @@ const id=(prefix)=>`${prefix}_${crypto.randomBytes(6).toString('hex')}`;
 
 async function teacher(){const auth=await requireApiUser();if(auth.error)return auth;if(!['teacher','admin'].includes(auth.user.role))return {error:fail('Forbidden',403)};return auth;}
 
+function projectForAssignment(assignment, student){
+  return {
+    id:`project_${crypto.randomUUID()}`,
+    assignmentId:assignment.id,
+    studentId:student.id,
+    name:assignment.title,
+    slug:assignment.slug,
+    type:'assigned_project',
+    status:'Not started',
+    progress:0,
+    technologies:assignment.technologies||[],
+    githubOwner:'',
+    githubRepo:'',
+    defaultBranch:'main',
+    githubInstallationId:student.githubInstallationId||null,
+    startDate:assignment.startDate,
+    deadline:assignment.deadline,
+    teacherScore:null,
+    lastSyncedAt:null,
+  };
+}
+
+async function addExistingAssignmentsToStudents(groupId, students){
+  if(!students.length)return 0;
+  const [assignments,projects]=await Promise.all([readJson('assignments',[]),readJson('projects',[])]);
+  const groupAssignments=assignments.filter(a=>a.groupId===groupId&&a.status!=='archived');
+  if(!groupAssignments.length)return 0;
+  const existing=new Set(projects.map(p=>`${p.assignmentId}:${p.studentId}`));
+  const fresh=[];
+  for(const student of students){
+    for(const assignment of groupAssignments){
+      const key=`${assignment.id}:${student.id}`;
+      if(existing.has(key))continue;
+      fresh.push(projectForAssignment(assignment,student));
+      existing.add(key);
+    }
+  }
+  if(fresh.length)await writeJson('projects',[...fresh,...projects]);
+  return fresh.length;
+}
+
 export async function POST(req){
   const auth=await teacher();if(auth.error)return auth.error;
   try{
@@ -44,7 +85,9 @@ export async function POST(req){
       await Promise.all([
         writeJson('users',[...users,student]),
         writeJson('groups',groups.map(g=>g.id===groupId?{...g,studentIds:[...(g.studentIds||[]),student.id]}:g))
-      ]);return ok({student,defaultPassword:password});
+      ]);
+      const projectsCreated=await addExistingAssignmentsToStudents(groupId,[student]);
+      return ok({student,defaultPassword:password,projectsCreated});
     }
 
     if(body.action==='importStudents'){
@@ -55,7 +98,9 @@ export async function POST(req){
       await Promise.all([
         writeJson('users',[...users,...created]),
         writeJson('groups',groups.map(g=>g.id===groupId?{...g,studentIds:[...(g.studentIds||[]),...ids]}:g))
-      ]);return ok({created:created.length,skipped,defaultPassword:password});
+      ]);
+      const projectsCreated=await addExistingAssignmentsToStudents(groupId,created);
+      return ok({created:created.length,skipped,defaultPassword:password,projectsCreated});
     }
 
     if(body.action==='updateStudent'){

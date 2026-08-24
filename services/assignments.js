@@ -8,7 +8,7 @@ export async function assignmentsForGroup(groupId){ return (await getAssignments
 
 export async function createAssignment(input,user){
   const groups=await readJson('groups',[]); const group=groups.find(g=>g.id===input.groupId); if(!group)throw new Error('Group not found');
-  const assignment={id:`assignment_${crypto.randomUUID()}`,title:input.title.trim(),slug:input.slug||input.title.toLowerCase().replace(/[^a-z0-9]+/gi,'-').replace(/(^-|-$)/g,''),groupId:input.groupId,teacherId:user.id,description:input.description.trim(),requirements:input.requirements||[],technologies:input.technologies||[],rubric:input.rubric||[],startDate:input.startDate,deadline:input.deadline,status:'published',createdAt:new Date().toISOString()};
+  const assignment={id:`assignment_${crypto.randomUUID()}`,title:input.title.trim(),slug:input.slug||input.title.toLowerCase().replace(/[^a-z0-9]+/gi,'-').replace(/(^-|-$)/g,''),groupId:input.groupId,teacherId:user.id,description:input.description.trim(),descriptionHtml:input.descriptionHtml||'',requirements:input.requirements||[],technologies:input.technologies||[],rubric:input.rubric||[],startDate:input.startDate,deadline:input.deadline,status:'published',createdAt:new Date().toISOString()};
   await updateJson('assignments',[],x=>[assignment,...x]);
   const users=await getUsers();
   await updateJson('projects',[],projects=>{

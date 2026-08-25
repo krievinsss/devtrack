@@ -11,47 +11,14 @@ export const SHOP_ITEMS=[
   {id:'theme_midnight',type:'ui_theme',name:'Midnight Neon',description:'A darker DevTrack accent theme.',price:900,rarity:'epic',preview:'midnight'},
   {id:'theme_terminal',type:'ui_theme',name:'Terminal',description:'Developer-inspired green accent theme.',price:1100,rarity:'legendary',preview:'terminal'}
 ];
-
+export const ACHIEVEMENTS={first_grade:{name:'First Grade',description:'Receive your first final project grade.'},perfect_ten:{name:'Perfect 10',description:'Earn a grade of 10 on a project.'},level_5:{name:'Level 5',description:'Reach DevTrack level 5.'},level_10:{name:'Level 10',description:'Reach DevTrack level 10.'}};
 const CREDIT_BY_GRADE={10:500,9:350,8:250,7:175,6:120,5:80,4:50,3:25,2:10,1:0};
 const XP_BY_GRADE={10:700,9:550,8:430,7:340,6:270,5:210,4:160,3:110,2:70,1:30};
-
 function emptyProfile(studentId){return {studentId,credits:0,xp:0,level:1,inventory:[],equipped:{avatar_frame:null,title:null,ui_theme:null},rewards:{},achievements:[],updatedAt:new Date().toISOString()};}
 export function levelForXp(xp=0){return Math.max(1,Math.floor(Math.sqrt(Number(xp)/180))+1)}
+function achievementsFor(profile,grade){const set=new Set(profile.achievements||[]);set.add('first_grade');if(grade===10)set.add('perfect_ten');if(profile.level>=5)set.add('level_5');if(profile.level>=10)set.add('level_10');return [...set]}
 export async function getGamification(studentId){const profiles=await readJson('gamificationProfiles',[]);return profiles.find(x=>x.studentId===studentId)||emptyProfile(studentId)}
 export async function getTransactions(studentId){return (await readJson('gamificationTransactions',[])).filter(x=>x.studentId===studentId).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));}
-
-export async function rewardAssessment(assessment){
-  const grade=Math.max(1,Math.min(10,Number(assessment.grade)||1));
-  const credits=CREDIT_BY_GRADE[grade]||0,xp=XP_BY_GRADE[grade]||0;
-  const sourceKey=`assessment:${assessment.projectId}`;
-  let deltaCredits=0,deltaXp=0,nextProfile=null;
-  await updateJson('gamificationProfiles',[],profiles=>{
-    const current=profiles.find(x=>x.studentId===assessment.studentId)||emptyProfile(assessment.studentId);
-    const previous=current.rewards?.[sourceKey]||{credits:0,xp:0,grade:null};
-    deltaCredits=credits-Number(previous.credits||0);deltaXp=xp-Number(previous.xp||0);
-    const nextXp=Math.max(0,Number(current.xp||0)+deltaXp);
-    nextProfile={...current,credits:Math.max(0,Number(current.credits||0)+deltaCredits),xp:nextXp,level:levelForXp(nextXp),rewards:{...(current.rewards||{}),[sourceKey]:{credits,xp,grade,assessmentId:assessment.id,updatedAt:new Date().toISOString()}},updatedAt:new Date().toISOString()};
-    return [nextProfile,...profiles.filter(x=>x.studentId!==assessment.studentId)];
-  });
-  if(deltaCredits!==0||deltaXp!==0){await updateJson('gamificationTransactions',[],items=>[{id:`tx_${crypto.randomUUID()}`,studentId:assessment.studentId,type:'assessment_reward',sourceKey,projectId:assessment.projectId,assessmentId:assessment.id,grade,credits:deltaCredits,xp:deltaXp,label:`Project grade ${grade}`,createdAt:new Date().toISOString()},...items]);}
-  return nextProfile;
-}
-
-export async function buyItem(studentId,itemId){
-  const item=SHOP_ITEMS.find(x=>x.id===itemId);if(!item)throw new Error('Shop item not found');
-  let purchased=null;
-  await updateJson('gamificationProfiles',[],profiles=>{
-    const current=profiles.find(x=>x.studentId===studentId)||emptyProfile(studentId);
-    if((current.inventory||[]).includes(itemId))throw new Error('Item already owned');
-    if(Number(current.credits||0)<item.price)throw new Error('Not enough DevCredits');
-    purchased={...current,credits:Number(current.credits)-item.price,inventory:[...(current.inventory||[]),itemId],updatedAt:new Date().toISOString()};
-    return [purchased,...profiles.filter(x=>x.studentId!==studentId)];
-  });
-  await updateJson('gamificationTransactions',[],items=>[{id:`tx_${crypto.randomUUID()}`,studentId,type:'purchase',itemId,credits:-item.price,xp:0,label:`Purchased ${item.name}`,createdAt:new Date().toISOString()},...items]);
-  return purchased;
-}
-
-export async function equipItem(studentId,itemId){
-  const item=SHOP_ITEMS.find(x=>x.id===itemId);if(!item)throw new Error('Shop item not found');let equipped=null;
-  await updateJson('gamificationProfiles',[],profiles=>{const current=profiles.find(x=>x.studentId===studentId)||emptyProfile(studentId);if(!(current.inventory||[]).includes(itemId))throw new Error('You do not own this item');equipped={...current,equipped:{...(current.equipped||{}),[item.type]:itemId},updatedAt:new Date().toISOString()};return [equipped,...profiles.filter(x=>x.studentId!==studentId)]});return equipped;
-}
+export async function rewardAssessment(assessment){const grade=Math.max(1,Math.min(10,Number(assessment.grade)||1));const credits=CREDIT_BY_GRADE[grade]||0,xp=XP_BY_GRADE[grade]||0;const sourceKey=`assessment:${assessment.projectId}`;let deltaCredits=0,deltaXp=0,nextProfile=null;await updateJson('gamificationProfiles',[],profiles=>{const current=profiles.find(x=>x.studentId===assessment.studentId)||emptyProfile(assessment.studentId);const previous=current.rewards?.[sourceKey]||{credits:0,xp:0,grade:null};deltaCredits=credits-Number(previous.credits||0);deltaXp=xp-Number(previous.xp||0);const nextXp=Math.max(0,Number(current.xp||0)+deltaXp);const base={...current,credits:Math.max(0,Number(current.credits||0)+deltaCredits),xp:nextXp,level:levelForXp(nextXp),rewards:{...(current.rewards||{}),[sourceKey]:{credits,xp,grade,assessmentId:assessment.id,updatedAt:new Date().toISOString()}},updatedAt:new Date().toISOString()};nextProfile={...base,achievements:achievementsFor(base,grade)};return [nextProfile,...profiles.filter(x=>x.studentId!==assessment.studentId)]});if(deltaCredits!==0||deltaXp!==0){await updateJson('gamificationTransactions',[],items=>[{id:`tx_${crypto.randomUUID()}`,studentId:assessment.studentId,type:'assessment_reward',sourceKey,projectId:assessment.projectId,assessmentId:assessment.id,grade,credits:deltaCredits,xp:deltaXp,label:`Project grade ${grade}`,createdAt:new Date().toISOString()},...items]);}return nextProfile;}
+export async function buyItem(studentId,itemId){const item=SHOP_ITEMS.find(x=>x.id===itemId);if(!item)throw new Error('Shop item not found');let purchased=null;await updateJson('gamificationProfiles',[],profiles=>{const current=profiles.find(x=>x.studentId===studentId)||emptyProfile(studentId);if((current.inventory||[]).includes(itemId))throw new Error('Item already owned');if(Number(current.credits||0)<item.price)throw new Error('Not enough DevCredits');purchased={...current,credits:Number(current.credits)-item.price,inventory:[...(current.inventory||[]),itemId],updatedAt:new Date().toISOString()};return [purchased,...profiles.filter(x=>x.studentId!==studentId)]});await updateJson('gamificationTransactions',[],items=>[{id:`tx_${crypto.randomUUID()}`,studentId,type:'purchase',itemId,credits:-item.price,xp:0,label:`Purchased ${item.name}`,createdAt:new Date().toISOString()},...items]);return purchased;}
+export async function equipItem(studentId,itemId){const item=SHOP_ITEMS.find(x=>x.id===itemId);if(!item)throw new Error('Shop item not found');let equipped=null;await updateJson('gamificationProfiles',[],profiles=>{const current=profiles.find(x=>x.studentId===studentId)||emptyProfile(studentId);if(!(current.inventory||[]).includes(itemId))throw new Error('You do not own this item');equipped={...current,equipped:{...(current.equipped||{}),[item.type]:itemId},updatedAt:new Date().toISOString()};return [equipped,...profiles.filter(x=>x.studentId!==studentId)]});return equipped;}

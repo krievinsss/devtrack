@@ -3,6 +3,7 @@ import './admin-ui.css';
 import './github-loader.css';
 import './project-ux.css';
 import './gamification.css';
+import './achievements-profile.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

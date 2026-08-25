@@ -4,9 +4,11 @@ import { requirePageUser } from '@/lib/page';
 import { getUsers } from '@/services/users';
 import { getProjects } from '@/services/projects';
 import { getGamificationProfiles,SHOP_ITEMS,ACHIEVEMENTS,levelForXp } from '@/services/gamification';
+import { EXTRA_AVATARS } from '@/services/avatarExtras';
 import { readJson } from '@/lib/storage';
 
-function cosmetic(id){return SHOP_ITEMS.find(x=>x.id===id)||null}
+const CATALOG=[...SHOP_ITEMS,...EXTRA_AVATARS];
+function cosmetic(id){return CATALOG.find(x=>x.id===id)||null}
 export default async function ClassmatesPage(){
   const user=await requirePageUser(['student']);
   const [users,groups,profiles,projects]=await Promise.all([getUsers(),readJson('groups',[]),getGamificationProfiles(),getProjects()]);

@@ -1,109 +1,23 @@
 import crypto from 'node:crypto';
-import { readJson, updateJson } from '@/lib/storage';
+import { readJson, updateJson, readLatestVersionedJson, writeVersionedJson } from '@/lib/storage';
 
 export const SHOP_ITEMS=[
-  // Avatar frames
-  {id:'frame_violet',type:'avatar_frame',name:'Violet Pulse',description:'Electric violet profile frame.',price:350,rarity:'rare',preview:'violet',minLevel:1},
-  {id:'frame_gold',type:'avatar_frame',name:'Gold Standard',description:'Golden frame for strong project results.',price:750,rarity:'epic',preview:'gold',minLevel:4},
-  {id:'frame_matrix',type:'avatar_frame',name:'Matrix',description:'Terminal-green developer frame.',price:500,rarity:'rare',preview:'matrix',minLevel:2},
-  {id:'frame_ice',type:'avatar_frame',name:'Frozen Commit',description:'Cold blue frame with icy glow.',price:550,rarity:'rare',preview:'ice',minLevel:3},
-  {id:'frame_lava',type:'avatar_frame',name:'Hotfix',description:'Red-orange frame for emergency deploy energy.',price:650,rarity:'epic',preview:'lava',minLevel:4},
-  {id:'frame_rgb',type:'avatar_frame',name:'RGB Overdrive',description:'Arcade RGB frame for maximum aura.',price:950,rarity:'legendary',preview:'rgb',minLevel:7},
-  {id:'frame_void',type:'avatar_frame',name:'Void Walker',description:'Dark cosmic frame with purple edge.',price:1200,rarity:'legendary',preview:'void',minLevel:9},
-  {id:'frame_sigma',type:'avatar_frame',name:'Sigma 67',description:'Certified 67 aura frame. No explanation needed.',price:1067,rarity:'legendary',preview:'sigma',minLevel:6},
-
-  // Titles
-  {id:'title_api',type:'title',name:'API Tamer',description:'Profile title for students who bend APIs to their will.',price:300,rarity:'common',value:'API Tamer',minLevel:1},
-  {id:'title_bug',type:'title',name:'Bug Hunter',description:'For relentless debugging.',price:450,rarity:'rare',value:'Bug Hunter',minLevel:2},
-  {id:'title_ship',type:'title',name:'Ship It!',description:'For students who actually finish projects.',price:600,rarity:'epic',value:'Ship It!',minLevel:3},
-  {id:'title_main',type:'title',name:'Main Character',description:'The project demo somehow became your cinematic universe.',price:700,rarity:'epic',value:'Main Character',minLevel:5},
-  {id:'title_aura',type:'title',name:'+1000 Aura',description:'For suspiciously clean code and suspiciously high confidence.',price:850,rarity:'epic',value:'+1000 Aura',minLevel:6},
-  {id:'title_locked',type:'title',name:'Locked In',description:'No distractions. Only commits.',price:500,rarity:'rare',value:'Locked In',minLevel:3},
-  {id:'title_giga',type:'title',name:'Giga Commit',description:'One commit. Somehow 73 files changed.',price:900,rarity:'legendary',value:'Giga Commit',minLevel:8},
-  {id:'title_itworks',type:'title',name:'Works on My Machine',description:'A timeless developer classic.',price:420,rarity:'rare',value:'Works on My Machine',minLevel:2},
-
-  // Meme/profile slugs
-  {id:'slug_yolo',type:'slug',name:'YOLO',description:'Classic chaos energy.',price:150,rarity:'common',value:'YOLO',minLevel:1},
-  {id:'slug_sigma67',type:'slug',name:'sigma 67',description:'Modern classroom lore. Pure aura.',price:367,rarity:'rare',value:'sigma 67',minLevel:2},
-  {id:'slug_404brain',type:'slug',name:'404 brain not found',description:'Compiles eventually. Thinking optional.',price:250,rarity:'common',value:'404 brain not found',minLevel:1},
-  {id:'slug_cooked',type:'slug',name:'cooked but compiling',description:'It is bad. It also works.',price:300,rarity:'rare',value:'cooked but compiling',minLevel:2},
-  {id:'slug_nocap',type:'slug',name:'no cap coder',description:'Absolutely zero cap in this repository.',price:325,rarity:'rare',value:'no cap coder',minLevel:2},
-  {id:'slug_aura',type:'slug',name:'aura farmer',description:'Every passing test adds aura.',price:550,rarity:'epic',value:'aura farmer',minLevel:4},
-  {id:'slug_touchgrass',type:'slug',name:'touch grass later',description:'Deadline first. Nature second.',price:450,rarity:'rare',value:'touch grass later',minLevel:3},
-  {id:'slug_main',type:'slug',name:'main character energy',description:'The demo starts when you enter the room.',price:650,rarity:'epic',value:'main character energy',minLevel:5},
-  {id:'slug_67aura',type:'slug',name:'67 aura detected',description:'Extremely scientific aura measurement.',price:667,rarity:'epic',value:'67 aura detected',minLevel:6},
-
-  // UI themes
-  {id:'theme_midnight',type:'ui_theme',name:'Midnight Neon',description:'Dark violet cyber theme.',price:900,rarity:'epic',preview:'midnight',minLevel:4},
-  {id:'theme_terminal',type:'ui_theme',name:'Terminal',description:'Green developer terminal accent theme.',price:1100,rarity:'legendary',preview:'terminal',minLevel:6},
-  {id:'theme_ocean',type:'ui_theme',name:'Deep Ocean',description:'Clean cyan/blue interface accents.',price:700,rarity:'rare',preview:'ocean',minLevel:3},
-  {id:'theme_sunset',type:'ui_theme',name:'Sunset Drive',description:'Warm orange and pink accents.',price:800,rarity:'epic',preview:'sunset',minLevel:4},
-  {id:'theme_ice',type:'ui_theme',name:'Arctic',description:'Cool ice-blue minimal theme.',price:850,rarity:'epic',preview:'arctic',minLevel:5},
-  {id:'theme_cyberpink',type:'ui_theme',name:'Cyber Pink',description:'Loud pink/purple neon UI.',price:1250,rarity:'legendary',preview:'cyberpink',minLevel:8},
-  {id:'theme_sigma',type:'ui_theme',name:'Sigma 67 UI',description:'Unnecessarily powerful purple-green meme theme.',price:1667,rarity:'mythic',preview:'sigma',minLevel:10}
+  {id:'frame_violet',type:'avatar_frame',name:'Violet Pulse',description:'Electric violet profile frame.',price:350,rarity:'rare',preview:'violet',minLevel:1},{id:'frame_gold',type:'avatar_frame',name:'Gold Standard',description:'Golden frame for strong project results.',price:750,rarity:'epic',preview:'gold',minLevel:4},{id:'frame_matrix',type:'avatar_frame',name:'Matrix',description:'Terminal-green developer frame.',price:500,rarity:'rare',preview:'matrix',minLevel:2},{id:'frame_ice',type:'avatar_frame',name:'Frozen Commit',description:'Cold blue frame with icy glow.',price:550,rarity:'rare',preview:'ice',minLevel:3},{id:'frame_lava',type:'avatar_frame',name:'Hotfix',description:'Red-orange frame for emergency deploy energy.',price:650,rarity:'epic',preview:'lava',minLevel:4},{id:'frame_rgb',type:'avatar_frame',name:'RGB Overdrive',description:'Arcade RGB frame for maximum aura.',price:950,rarity:'legendary',preview:'rgb',minLevel:7},{id:'frame_void',type:'avatar_frame',name:'Void Walker',description:'Dark cosmic frame with purple edge.',price:1200,rarity:'legendary',preview:'void',minLevel:9},{id:'frame_sigma',type:'avatar_frame',name:'Sigma 67',description:'Certified 67 aura frame. No explanation needed.',price:1067,rarity:'legendary',preview:'sigma',minLevel:6},
+  {id:'title_api',type:'title',name:'API Tamer',description:'Profile title for students who bend APIs to their will.',price:300,rarity:'common',value:'API Tamer',minLevel:1},{id:'title_bug',type:'title',name:'Bug Hunter',description:'For relentless debugging.',price:450,rarity:'rare',value:'Bug Hunter',minLevel:2},{id:'title_ship',type:'title',name:'Ship It!',description:'For students who actually finish projects.',price:600,rarity:'epic',value:'Ship It!',minLevel:3},{id:'title_main',type:'title',name:'Main Character',description:'The project demo somehow became your cinematic universe.',price:700,rarity:'epic',value:'Main Character',minLevel:5},{id:'title_aura',type:'title',name:'+1000 Aura',description:'For suspiciously clean code and suspiciously high confidence.',price:850,rarity:'epic',value:'+1000 Aura',minLevel:6},{id:'title_locked',type:'title',name:'Locked In',description:'No distractions. Only commits.',price:500,rarity:'rare',value:'Locked In',minLevel:3},{id:'title_giga',type:'title',name:'Giga Commit',description:'One commit. Somehow 73 files changed.',price:900,rarity:'legendary',value:'Giga Commit',minLevel:8},{id:'title_itworks',type:'title',name:'Works on My Machine',description:'A timeless developer classic.',price:420,rarity:'rare',value:'Works on My Machine',minLevel:2},
+  {id:'slug_yolo',type:'slug',name:'YOLO',description:'Classic chaos energy.',price:150,rarity:'common',value:'YOLO',minLevel:1},{id:'slug_sigma67',type:'slug',name:'sigma 67',description:'Modern classroom lore. Pure aura.',price:367,rarity:'rare',value:'sigma 67',minLevel:2},{id:'slug_404brain',type:'slug',name:'404 brain not found',description:'Compiles eventually. Thinking optional.',price:250,rarity:'common',value:'404 brain not found',minLevel:1},{id:'slug_cooked',type:'slug',name:'cooked but compiling',description:'It is bad. It also works.',price:300,rarity:'rare',value:'cooked but compiling',minLevel:2},{id:'slug_nocap',type:'slug',name:'no cap coder',description:'Absolutely zero cap in this repository.',price:325,rarity:'rare',value:'no cap coder',minLevel:2},{id:'slug_aura',type:'slug',name:'aura farmer',description:'Every passing test adds aura.',price:550,rarity:'epic',value:'aura farmer',minLevel:4},{id:'slug_touchgrass',type:'slug',name:'touch grass later',description:'Deadline first. Nature second.',price:450,rarity:'rare',value:'touch grass later',minLevel:3},{id:'slug_main',type:'slug',name:'main character energy',description:'The demo starts when you enter the room.',price:650,rarity:'epic',value:'main character energy',minLevel:5},{id:'slug_67aura',type:'slug',name:'67 aura detected',description:'Extremely scientific aura measurement.',price:667,rarity:'epic',value:'67 aura detected',minLevel:6},
+  {id:'theme_midnight',type:'ui_theme',name:'Midnight Neon',description:'Dark violet cyber theme.',price:900,rarity:'epic',preview:'midnight',minLevel:4},{id:'theme_terminal',type:'ui_theme',name:'Terminal',description:'Green developer terminal accent theme.',price:1100,rarity:'legendary',preview:'terminal',minLevel:6},{id:'theme_ocean',type:'ui_theme',name:'Deep Ocean',description:'Clean cyan/blue interface accents.',price:700,rarity:'rare',preview:'ocean',minLevel:3},{id:'theme_sunset',type:'ui_theme',name:'Sunset Drive',description:'Warm orange and pink accents.',price:800,rarity:'epic',preview:'sunset',minLevel:4},{id:'theme_ice',type:'ui_theme',name:'Arctic',description:'Cool ice-blue minimal theme.',price:850,rarity:'epic',preview:'arctic',minLevel:5},{id:'theme_cyberpink',type:'ui_theme',name:'Cyber Pink',description:'Loud pink/purple neon UI.',price:1250,rarity:'legendary',preview:'cyberpink',minLevel:8},{id:'theme_sigma',type:'ui_theme',name:'Sigma 67 UI',description:'Unnecessarily powerful purple-green meme theme.',price:1667,rarity:'mythic',preview:'sigma',minLevel:10}
 ];
-
-export const ACHIEVEMENTS={
-  first_grade:{name:'First Grade',description:'Receive your first final project grade.'},
-  perfect_ten:{name:'Perfect 10',description:'Earn a grade of 10 on a project.'},
-  level_5:{name:'Level 5',description:'Reach DevTrack level 5.'},
-  level_10:{name:'Level 10',description:'Reach DevTrack level 10.'},
-  level_15:{name:'Level 15',description:'Reach DevTrack level 15.'},
-  level_20:{name:'Level 20',description:'Reach DevTrack level 20.'}
-};
-
-const CREDIT_BY_GRADE={10:500,9:350,8:250,7:175,6:120,5:80,4:50,3:25,2:10,1:0};
-const XP_BY_GRADE={10:700,9:550,8:430,7:340,6:270,5:210,4:160,3:110,2:70,1:30};
-
-function emptyProfile(studentId){return {studentId,credits:0,xp:0,level:1,inventory:[],equipped:{avatar_frame:null,title:null,slug:null,ui_theme:null},rewards:{},claimedLevels:[1],achievements:[],updatedAt:new Date().toISOString()};}
+export const ACHIEVEMENTS={first_grade:{name:'First Grade',description:'Receive your first final project grade.'},perfect_ten:{name:'Perfect 10',description:'Earn a grade of 10 on a project.'},level_5:{name:'Level 5',description:'Reach DevTrack level 5.'},level_10:{name:'Level 10',description:'Reach DevTrack level 10.'},level_15:{name:'Level 15',description:'Reach DevTrack level 15.'},level_20:{name:'Level 20',description:'Reach DevTrack level 20.'}};
+const CREDIT_BY_GRADE={10:500,9:350,8:250,7:175,6:120,5:80,4:50,3:25,2:10,1:0};const XP_BY_GRADE={10:700,9:550,8:430,7:340,6:270,5:210,4:160,3:110,2:70,1:30};
+const EMPTY_EQUIPPED={avatar_frame:null,title:null,slug:null,ui_theme:null};
+function emptyProfile(studentId){return {studentId,credits:0,xp:0,level:1,inventory:[],equipped:{...EMPTY_EQUIPPED},rewards:{},claimedLevels:[1],achievements:[],updatedAt:new Date().toISOString()};}
 export function levelForXp(xp=0){return Math.max(1,Math.floor(Math.sqrt(Number(xp)/180))+1)}
 export function levelCreditReward(level){const n=Math.max(2,Number(level)||2);let reward=25+n*25;if(n%5===0)reward+=n*25;if(n%10===0)reward+=250;return reward;}
 function achievementsFor(profile,grade){const set=new Set(profile.achievements||[]);set.add('first_grade');if(grade===10)set.add('perfect_ten');if(profile.level>=5)set.add('level_5');if(profile.level>=10)set.add('level_10');if(profile.level>=15)set.add('level_15');if(profile.level>=20)set.add('level_20');return [...set]}
-export async function getGamification(studentId){const profiles=await readJson('gamificationProfiles',[]);return profiles.find(x=>x.studentId===studentId)||emptyProfile(studentId)}
-export async function getGamificationProfiles(){return readJson('gamificationProfiles',[])}
+async function withDurableEquipped(profile){const saved=await readLatestVersionedJson('equipped',profile.studentId,null);return {...profile,equipped:{...EMPTY_EQUIPPED,...(profile.equipped||{}),...(saved?.equipped||{})}}}
+export async function getGamification(studentId){const profiles=await readJson('gamificationProfiles',[]);return withDurableEquipped(profiles.find(x=>x.studentId===studentId)||emptyProfile(studentId))}
+export async function getGamificationProfiles(){const profiles=await readJson('gamificationProfiles',[]);return Promise.all(profiles.map(withDurableEquipped))}
 export async function getTransactions(studentId){return (await readJson('gamificationTransactions',[])).filter(x=>x.studentId===studentId).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));}
-
-export async function rewardAssessment(assessment){
-  const grade=Math.max(1,Math.min(10,Number(assessment.grade)||1));
-  const credits=CREDIT_BY_GRADE[grade]||0,xp=XP_BY_GRADE[grade]||0;
-  const sourceKey=`assessment:${assessment.projectId}`;
-  let deltaCredits=0,deltaXp=0,nextProfile=null,newLevels=[],levelBonus=0;
-  await updateJson('gamificationProfiles',[],profiles=>{
-    const current=profiles.find(x=>x.studentId===assessment.studentId)||emptyProfile(assessment.studentId);
-    const previous=current.rewards?.[sourceKey]||{credits:0,xp:0,grade:null};
-    deltaCredits=credits-Number(previous.credits||0);deltaXp=xp-Number(previous.xp||0);
-    const nextXp=Math.max(0,Number(current.xp||0)+deltaXp);
-    const nextLevel=levelForXp(nextXp);
-    const claimed=new Set(current.claimedLevels||[1]);
-    newLevels=[];
-    for(let lv=2;lv<=nextLevel;lv++){if(!claimed.has(lv)){claimed.add(lv);newLevels.push(lv)}}
-    levelBonus=newLevels.reduce((sum,lv)=>sum+levelCreditReward(lv),0);
-    const base={...current,credits:Math.max(0,Number(current.credits||0)+deltaCredits+levelBonus),xp:nextXp,level:nextLevel,claimedLevels:[...claimed].sort((a,b)=>a-b),rewards:{...(current.rewards||{}),[sourceKey]:{credits,xp,grade,assessmentId:assessment.id,updatedAt:new Date().toISOString()}},updatedAt:new Date().toISOString()};
-    nextProfile={...base,achievements:achievementsFor(base,grade)};
-    return [nextProfile,...profiles.filter(x=>x.studentId!==assessment.studentId)];
-  });
-  const tx=[];
-  if(deltaCredits!==0||deltaXp!==0)tx.push({id:`tx_${crypto.randomUUID()}`,studentId:assessment.studentId,type:'assessment_reward',sourceKey,projectId:assessment.projectId,assessmentId:assessment.id,grade,credits:deltaCredits,xp:deltaXp,label:`Project grade ${grade}`,createdAt:new Date().toISOString()});
-  if(newLevels.length)tx.push({id:`tx_${crypto.randomUUID()}`,studentId:assessment.studentId,type:'level_reward',levels:newLevels,credits:levelBonus,xp:0,label:newLevels.length===1?`Level ${newLevels[0]} unlock reward`:`Level ${newLevels[0]}–${newLevels[newLevels.length-1]} unlock rewards`,createdAt:new Date().toISOString()});
-  if(tx.length)await updateJson('gamificationTransactions',[],items=>[...tx,...items]);
-  return nextProfile;
-}
-
-export async function buyItem(studentId,itemId){
-  const item=SHOP_ITEMS.find(x=>x.id===itemId);if(!item)throw new Error('Shop item not found');let purchased=null;
-  await updateJson('gamificationProfiles',[],profiles=>{
-    const current=profiles.find(x=>x.studentId===studentId)||emptyProfile(studentId);
-    if((current.inventory||[]).includes(itemId))throw new Error('Item already owned');
-    if(Number(current.level||1)<Number(item.minLevel||1))throw new Error(`Unlocks at level ${item.minLevel}`);
-    if(Number(current.credits||0)<item.price)throw new Error('Not enough DevCredits');
-    purchased={...current,credits:Number(current.credits)-item.price,inventory:[...(current.inventory||[]),itemId],updatedAt:new Date().toISOString()};
-    return [purchased,...profiles.filter(x=>x.studentId!==studentId)];
-  });
-  await updateJson('gamificationTransactions',[],items=>[{id:`tx_${crypto.randomUUID()}`,studentId,type:'purchase',itemId,credits:-item.price,xp:0,label:`Purchased ${item.name}`,createdAt:new Date().toISOString()},...items]);
-  return purchased;
-}
-
-export async function equipItem(studentId,itemId){
-  const item=SHOP_ITEMS.find(x=>x.id===itemId);if(!item)throw new Error('Shop item not found');let equipped=null;
-  await updateJson('gamificationProfiles',[],profiles=>{const current=profiles.find(x=>x.studentId===studentId)||emptyProfile(studentId);if(!(current.inventory||[]).includes(itemId))throw new Error('You do not own this item');equipped={...current,equipped:{...(current.equipped||{}),[item.type]:itemId},updatedAt:new Date().toISOString()};return [equipped,...profiles.filter(x=>x.studentId!==studentId)]});return equipped;
-}
+export async function rewardAssessment(assessment){const grade=Math.max(1,Math.min(10,Number(assessment.grade)||1));const credits=CREDIT_BY_GRADE[grade]||0,xp=XP_BY_GRADE[grade]||0;const sourceKey=`assessment:${assessment.projectId}`;let deltaCredits=0,deltaXp=0,nextProfile=null,newLevels=[],levelBonus=0;await updateJson('gamificationProfiles',[],profiles=>{const current=profiles.find(x=>x.studentId===assessment.studentId)||emptyProfile(assessment.studentId);const previous=current.rewards?.[sourceKey]||{credits:0,xp:0,grade:null};deltaCredits=credits-Number(previous.credits||0);deltaXp=xp-Number(previous.xp||0);const nextXp=Math.max(0,Number(current.xp||0)+deltaXp);const nextLevel=levelForXp(nextXp);const claimed=new Set(current.claimedLevels||[1]);for(let lv=2;lv<=nextLevel;lv++)if(!claimed.has(lv)){claimed.add(lv);newLevels.push(lv)}levelBonus=newLevels.reduce((sum,lv)=>sum+levelCreditReward(lv),0);const base={...current,credits:Math.max(0,Number(current.credits||0)+deltaCredits+levelBonus),xp:nextXp,level:nextLevel,claimedLevels:[...claimed].sort((a,b)=>a-b),rewards:{...(current.rewards||{}),[sourceKey]:{credits,xp,grade,assessmentId:assessment.id,updatedAt:new Date().toISOString()}},updatedAt:new Date().toISOString()};nextProfile={...base,achievements:achievementsFor(base,grade)};return [nextProfile,...profiles.filter(x=>x.studentId!==assessment.studentId)]});const tx=[];if(deltaCredits!==0||deltaXp!==0)tx.push({id:`tx_${crypto.randomUUID()}`,studentId:assessment.studentId,type:'assessment_reward',sourceKey,projectId:assessment.projectId,assessmentId:assessment.id,grade,credits:deltaCredits,xp:deltaXp,label:`Project grade ${grade}`,createdAt:new Date().toISOString()});if(newLevels.length)tx.push({id:`tx_${crypto.randomUUID()}`,studentId:assessment.studentId,type:'level_reward',levels:newLevels,credits:levelBonus,xp:0,label:newLevels.length===1?`Level ${newLevels[0]} unlock reward`:`Level ${newLevels[0]}–${newLevels[newLevels.length-1]} unlock rewards`,createdAt:new Date().toISOString()});if(tx.length)await updateJson('gamificationTransactions',[],items=>[...tx,...items]);return withDurableEquipped(nextProfile);}
+export async function buyItem(studentId,itemId){const item=SHOP_ITEMS.find(x=>x.id===itemId);if(!item)throw new Error('Shop item not found');let purchased=null;await updateJson('gamificationProfiles',[],profiles=>{const current=profiles.find(x=>x.studentId===studentId)||emptyProfile(studentId);if((current.inventory||[]).includes(itemId))throw new Error('Item already owned');if(Number(current.level||1)<Number(item.minLevel||1))throw new Error(`Unlocks at level ${item.minLevel}`);if(Number(current.credits||0)<item.price)throw new Error('Not enough DevCredits');purchased={...current,credits:Number(current.credits)-item.price,inventory:[...(current.inventory||[]),itemId],updatedAt:new Date().toISOString()};return [purchased,...profiles.filter(x=>x.studentId!==studentId)]});await updateJson('gamificationTransactions',[],items=>[{id:`tx_${crypto.randomUUID()}`,studentId,type:'purchase',itemId,credits:-item.price,xp:0,label:`Purchased ${item.name}`,createdAt:new Date().toISOString()},...items]);return withDurableEquipped(purchased);}
+export async function equipItem(studentId,itemId,clientEquipped={}){const item=SHOP_ITEMS.find(x=>x.id===itemId);if(!item)throw new Error('Shop item not found');const base=await getGamification(studentId);if(!(base.inventory||[]).includes(itemId))throw new Error('You do not own this item');const equipped={...EMPTY_EQUIPPED,...(base.equipped||{}),...(clientEquipped||{}),[item.type]:itemId};const snapshot={studentId,equipped,updatedAt:new Date().toISOString()};await writeVersionedJson('equipped',studentId,snapshot);return {...base,equipped,updatedAt:snapshot.updatedAt};}

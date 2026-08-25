@@ -1,6 +1,7 @@
 import './globals.css';
 import './admin-ui.css';
 import './github-loader.css';
+import './project-ux.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

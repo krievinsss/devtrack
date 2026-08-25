@@ -1,0 +1,3 @@
+import { NextResponse } from 'next/server';
+import { exchangeSpotifyCode,readSpotifyState } from '@/services/spotify';
+export async function GET(req){const url=new URL(req.url);try{const error=url.searchParams.get('error');if(error)throw new Error(error);const code=url.searchParams.get('code');const state=readSpotifyState(url.searchParams.get('state'));if(!code)throw new Error('Spotify authorization code missing');await exchangeSpotifyCode(code,state.userId);return NextResponse.redirect(new URL('/music?spotify=connected',url.origin));}catch(e){console.error('Spotify callback failed:',e);return NextResponse.redirect(new URL(`/music?spotify=error&message=${encodeURIComponent(e.message||'Connection failed')}`,url.origin));}}

@@ -4,6 +4,7 @@ import './github-loader.css';
 import './project-ux.css';
 import './gamification.css';
 import './achievements-profile.css';
+import './gamification-wow.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

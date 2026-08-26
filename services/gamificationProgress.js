@@ -2,6 +2,7 @@ import 'server-only';
 import { readJson,updateJson } from '@/lib/storage';
 import { ACHIEVEMENTS,SHOP_ITEMS,levelForXp } from '@/services/gamification';
 
+const ACHIEVEMENT_CREDIT_REWARD=100;
 function emptyProfile(studentId){return {studentId,credits:0,xp:0,level:1,inventory:[],equipped:{avatar:null,avatar_frame:null,title:null,slug:null,ui_theme:null},rewards:{},claimedLevels:[1],achievements:[],stats:{},updatedAt:new Date().toISOString()}}
 function grantRewards(profile){const inventory=new Set(profile.inventory||[]);for(const id of profile.achievements||[])for(const reward of ACHIEVEMENTS[id]?.rewards||[])inventory.add(reward);return {...profile,inventory:[...inventory]}}
 function isPresent(a){return ['present','late','attended','here'].includes(String(a.status||'').toLowerCase())}
@@ -21,7 +22,9 @@ export async function evaluateGamificationProgress(studentId){
     if(present.length>=10)set.add('attendance_10');if(present.length>=25)set.add('attendance_25');if(noLate.length>=10&&present.length>=10)set.add('never_late_10');
     const high=studentAssessments.filter(a=>Number(a.grade)>=8).length,tens=studentAssessments.filter(a=>Number(a.grade)===10).length;if(high>=3)set.add('three_high_grades');if(high>=5)set.add('five_high_grades');if(tens>=3)set.add('three_tens');
     const level=p.level||levelForXp(p.xp||0);if(level>=12&&(p.inventory||[]).length>=10)set.add('sigma_mode');
-    newIds=[...set].filter(id=>!before.has(id));p=grantRewards({...p,achievements:[...set],stats:{...(p.stats||{}),commits:count,fixCommits:fixes,refactorCommits:refactors,projectsCompleted:finished.length,attendancePresent:present.length},updatedAt:new Date().toISOString()});next=p;return [p,...profiles.filter(x=>x.studentId!==studentId)]});
-  if(newIds.length)await updateJson('gamificationTransactions',[],items=>[...newIds.map(id=>({id:`achievement_${studentId}_${id}_${Date.now()}`,studentId,type:'achievement',achievementId:id,credits:0,xp:0,label:`Achievement unlocked: ${ACHIEVEMENTS[id]?.name||id}`,createdAt:new Date().toISOString()})),...items]);
-  return {profile:next,newAchievements:newIds};
+    newIds=[...set].filter(id=>!before.has(id));
+    const achievementCredits=newIds.length*ACHIEVEMENT_CREDIT_REWARD;
+    p=grantRewards({...p,credits:Number(p.credits||0)+achievementCredits,achievements:[...set],stats:{...(p.stats||{}),commits:count,fixCommits:fixes,refactorCommits:refactors,projectsCompleted:finished.length,attendancePresent:present.length},updatedAt:new Date().toISOString()});next=p;return [p,...profiles.filter(x=>x.studentId!==studentId)]});
+  if(newIds.length)await updateJson('gamificationTransactions',[],items=>[...newIds.map(id=>({id:`achievement_${studentId}_${id}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,studentId,type:'achievement',achievementId:id,credits:ACHIEVEMENT_CREDIT_REWARD,xp:0,label:`Achievement unlocked: ${ACHIEVEMENTS[id]?.name||id}`,createdAt:new Date().toISOString()})),...items]);
+  return {profile:next,newAchievements:newIds,achievementCredits:newIds.length*ACHIEVEMENT_CREDIT_REWARD};
 }

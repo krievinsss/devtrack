@@ -39,6 +39,18 @@ export async function updateAssignment(id,input,user){
   return saved;
 }
 
+export async function setAssignmentActive(id,active,user){
+  let saved=null;
+  await updateJson('assignments',[],items=>items.map(a=>{
+    if(a.id!==id)return a;
+    saved={...a,teacherId:a.teacherId||user.id,active:!!active,status:active?'published':'inactive',updatedAt:new Date().toISOString()};
+    return saved;
+  }));
+  if(!saved)throw new Error('Project not found');
+  if(active)await ensureStudentProjects(saved);
+  return saved;
+}
+
 export async function deleteAssignment(id){
   const assignment=await getAssignment(id); if(!assignment)throw new Error('Project not found');
   await updateJson('assignments',[],items=>items.filter(a=>a.id!==id));

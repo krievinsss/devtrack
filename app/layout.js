@@ -6,6 +6,7 @@ import './gamification.css';
 import './achievements-profile.css';
 import './gamification-wow.css';
 import './music.css';
+import './music-realtime.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

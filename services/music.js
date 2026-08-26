@@ -1,15 +1,72 @@
 import crypto from 'node:crypto';
-import { readJson, updateJson } from '@/lib/storage';
-export const MUSIC_RULES_VERSION=1;export const MUSIC_FINE_DEFAULT=500;export const MUSIC_RULES=['Pievieno tikai mācību videi piemērotu mūziku.','Neizmanto dziesmu pieprasījumus, lai traucētu stundu vai provocētu citus.','Neatkārto vienu un to pašu dziesmu un nespamo rindu.','Skolotājs drīkst dziesmu izņemt, noraidīt vai apturēt pieprasījumus bez iepriekšēja brīdinājuma.','Par neatbilstošu izmantošanu var tikt piešķirts pagaidu bans un DevCredits sods.'];
+import { readJson, updateJson, appendVersionedEvent, readVersionedEvents } from '@/lib/storage';
+
+export const MUSIC_RULES_VERSION=1;
+export const MUSIC_FINE_DEFAULT=500;
+export const MUSIC_RULES=[
+  'Pievieno tikai mācību videi piemērotu mūziku.',
+  'Neizmanto dziesmu pieprasījumus, lai traucētu stundu vai provocētu citus.',
+  'Neatkārto vienu un to pašu dziesmu un nespamo rindu.',
+  'Skolotājs drīkst dziesmu izņemt, noraidīt vai apturēt pieprasījumus bez iepriekšēja brīdinājuma.',
+  'Par neatbilstošu izmantošanu var tikt piešķirts pagaidu bans un DevCredits sods.'
+];
+const MUSIC_EVENT_KEY='classroom';
+
 function blankAccess(studentId){return{studentId,acceptedRulesVersion:0,acceptedAt:null,banUntil:null,banReason:'',severity:null,fineDue:0,finePaidAt:null,updatedAt:new Date().toISOString()}}
-export async function getMusicSettings(){return readJson('musicSettings',{requestsEnabled:true,spotifyConnected:false,nowPlaying:null,updatedAt:null})}export async function getMusicAccess(studentId){const rows=await readJson('musicAccess',[]);return rows.find(x=>x.studentId===studentId)||blankAccess(studentId)}export async function getMusicAccessList(){return readJson('musicAccess',[])}
+export async function getMusicSettings(){return readJson('musicSettings',{requestsEnabled:true,spotifyConnected:false,nowPlaying:null,updatedAt:null})}
+export async function getMusicAccess(studentId){const rows=await readJson('musicAccess',[]);return rows.find(x=>x.studentId===studentId)||blankAccess(studentId)}
+export async function getMusicAccessList(){return readJson('musicAccess',[])}
 export async function acceptMusicRules(studentId){let saved;await updateJson('musicAccess',[],rows=>{const current=rows.find(x=>x.studentId===studentId)||blankAccess(studentId);saved={...current,acceptedRulesVersion:MUSIC_RULES_VERSION,acceptedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};return[saved,...rows.filter(x=>x.studentId!==studentId)]});return saved}
 export function activeMusicBan(access){return!!(access?.banUntil&&new Date(access.banUntil).getTime()>Date.now())}
-export async function getMusicQueue(){return(await readJson('musicQueue',[])).filter(x=>!['removed','failed','played'].includes(x.status)).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt))}
-export async function addMusicRequest(student,input){const[access,settings]=await Promise.all([getMusicAccess(student.id),getMusicSettings()]);if(access.acceptedRulesVersion!==MUSIC_RULES_VERSION)throw new Error('Accept the classroom music rules first');if(activeMusicBan(access))throw new Error('Music access is temporarily banned');if(Number(access.fineDue||0)>0)throw new Error('Pay the outstanding DevCredits fine first');if(!settings.requestsEnabled)throw new Error('Song requests are currently paused');const title=String(input.title||'').trim(),artist=String(input.artist||'').trim(),spotifyUrl=String(input.spotifyUrl||'').trim(),spotifyId=String(input.spotifyId||'').trim(),spotifyUri=String(input.spotifyUri||'').trim();if(!title)throw new Error('Song title is required');let created;await updateJson('musicQueue',[],rows=>{const duplicate=rows.find(x=>!['removed','failed','played'].includes(x.status)&&((spotifyId&&x.spotifyId===spotifyId)||(!spotifyId&&x.title.toLowerCase()===title.toLowerCase()&&String(x.artist||'').toLowerCase()===artist.toLowerCase())));if(duplicate)throw new Error('This song is already in the classroom queue');created={id:`music_${crypto.randomUUID()}`,studentId:student.id,studentName:`${student.firstName} ${student.lastName}`,title,artist,spotifyUrl,spotifyId,spotifyUri,image:String(input.image||''),durationMs:Number(input.durationMs||0),explicit:!!input.explicit,status:input.status||'requested',votes:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};return[...rows,created]});return created}
-export async function setMusicRequestStatus(requestId,status,extra={}){let saved;await updateJson('musicQueue',[],rows=>rows.map(row=>{if(row.id!==requestId)return row;saved={...row,...extra,status,updatedAt:new Date().toISOString()};return saved}));if(!saved)throw new Error('Request not found');return saved}
-export async function removeMusicRequest(requestId,actor){let removed;await updateJson('musicQueue',[],rows=>rows.map(row=>{if(row.id!==requestId)return row;if(actor.role==='student'&&row.studentId!==actor.id)throw new Error('You can only remove your own request');removed={...row,status:'removed',removedBy:actor.id,updatedAt:new Date().toISOString()};return removed}));if(!removed)throw new Error('Request not found');return removed}
-export async function moderateMusicRequest(requestId,status,actor){if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');if(!['played','removed'].includes(status))throw new Error('Invalid queue status');return setMusicRequestStatus(requestId,status,{moderatedBy:actor.id})}
+
+async function musicEvents(){return readVersionedEvents('music',MUSIC_EVENT_KEY)}
+function reduceQueue(events){
+  const map=new Map();
+  for(const event of events){
+    if(event.type==='add'&&event.request) map.set(event.request.id,event.request);
+    if(event.type==='patch'&&event.requestId&&map.has(event.requestId)) map.set(event.requestId,{...map.get(event.requestId),...(event.patch||{}),updatedAt:event.eventAt||new Date().toISOString()});
+  }
+  return [...map.values()].filter(x=>!['removed','failed','played'].includes(x.status)).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+}
+export async function getMusicQueue(){
+  const events=await musicEvents();
+  if(events.length) return reduceQueue(events);
+  // Backward compatibility: surface old queue while the new event log starts fresh.
+  return (await readJson('musicQueue',[])).filter(x=>!['removed','failed','played'].includes(x.status)).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+}
+
+export async function addMusicRequest(student,input){
+  const [access,settings,current]=await Promise.all([getMusicAccess(student.id),getMusicSettings(),getMusicQueue()]);
+  if(access.acceptedRulesVersion!==MUSIC_RULES_VERSION)throw new Error('Accept the classroom music rules first');
+  if(activeMusicBan(access))throw new Error('Music access is temporarily banned');
+  if(Number(access.fineDue||0)>0)throw new Error('Pay the outstanding DevCredits fine first');
+  if(!settings.requestsEnabled)throw new Error('Song requests are currently paused');
+  const title=String(input.title||'').trim(),artist=String(input.artist||'').trim(),spotifyUrl=String(input.spotifyUrl||'').trim(),spotifyId=String(input.spotifyId||'').trim(),spotifyUri=String(input.spotifyUri||'').trim();
+  if(!title)throw new Error('Song title is required');
+  const duplicate=current.find(x=>((spotifyId&&x.spotifyId===spotifyId)||(!spotifyId&&x.title.toLowerCase()===title.toLowerCase()&&String(x.artist||'').toLowerCase()===artist.toLowerCase())));
+  if(duplicate)throw new Error('This song is already in the classroom queue');
+  const created={id:`music_${crypto.randomUUID()}`,studentId:student.id,studentName:`${student.firstName} ${student.lastName}`,title,artist,spotifyUrl,spotifyId,spotifyUri,image:String(input.image||''),durationMs:Number(input.durationMs||0),explicit:!!input.explicit,status:input.status||'requested',votes:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  await appendVersionedEvent('music',MUSIC_EVENT_KEY,{type:'add',request:created});
+  return created;
+}
+export async function setMusicRequestStatus(requestId,status,extra={}){
+  const current=(await getMusicQueue()).find(x=>x.id===requestId);
+  if(!current)throw new Error('Request not found');
+  const patch={...extra,status,updatedAt:new Date().toISOString()};
+  await appendVersionedEvent('music',MUSIC_EVENT_KEY,{type:'patch',requestId,patch});
+  return {...current,...patch};
+}
+export async function removeMusicRequest(requestId,actor){
+  const current=(await getMusicQueue()).find(x=>x.id===requestId);
+  if(!current)throw new Error('Request not found');
+  if(actor.role==='student'&&current.studentId!==actor.id)throw new Error('You can only remove your own request');
+  return setMusicRequestStatus(requestId,'removed',{removedBy:actor.id});
+}
+export async function moderateMusicRequest(requestId,status,actor){
+  if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');
+  if(!['played','removed'].includes(status))throw new Error('Invalid queue status');
+  return setMusicRequestStatus(requestId,status,{moderatedBy:actor.id});
+}
 export async function setMusicRequestsEnabled(enabled,actor){if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');let saved;await updateJson('musicSettings',{},current=>{saved={...current,requestsEnabled:!!enabled,updatedAt:new Date().toISOString(),updatedBy:actor.id};return saved});return saved}
 export async function banMusicStudent(studentId,input,actor){if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');const durationMinutes=Math.max(1,Number(input.durationMinutes||60)),fine=Math.max(0,Number(input.fine??MUSIC_FINE_DEFAULT));let saved;await updateJson('musicAccess',[],rows=>{const current=rows.find(x=>x.studentId===studentId)||blankAccess(studentId);saved={...current,banUntil:new Date(Date.now()+durationMinutes*60000).toISOString(),banReason:String(input.reason||'Classroom music rules violation').trim(),severity:input.severity||'medium',fineDue:fine,finePaidAt:null,bannedBy:actor.id,updatedAt:new Date().toISOString()};return[saved,...rows.filter(x=>x.studentId!==studentId)]});return saved}
 export async function unbanMusicStudent(studentId,actor){if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');let saved;await updateJson('musicAccess',[],rows=>{const current=rows.find(x=>x.studentId===studentId)||blankAccess(studentId);saved={...current,banUntil:null,unbannedBy:actor.id,updatedAt:new Date().toISOString()};return[saved,...rows.filter(x=>x.studentId!==studentId)]});return saved}

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import AppShell from '@/components/AppShell';
-import { PageHeader,Badge,Progress } from '@/components/UI';
+import { PageHeader,Badge } from '@/components/UI';
 import { requirePageUser } from '@/lib/page';
 import { getProjects } from '@/services/projects';
 import { getUsers } from '@/services/users';
@@ -29,7 +29,7 @@ export default async function Projects(){
 
   const projects=allProjects.filter(p=>p.studentId===user.id);
   return <AppShell user={user}>
-    <PageHeader eyebrow="Repository workspace" title="My projects" description="Your assigned work, repository, diary, progress and teacher assessment."/>
-    <div className="project-grid">{projects.map(p=>{const a=assignments.find(x=>x.id===p.assignmentId);return <Link href={`/projects/${p.id}`} className="panel project-list-card" key={p.id}><div className="panel-title"><div><Badge tone="purple">{p.status}</Badge><h3>{p.name}</h3></div><span>{p.progress}%</span></div><p>{a?.description||p.assignment||'Project workspace'}</p><Progress value={p.progress}/><div className="project-meta"><span>{p.githubRepo?`${p.githubOwner}/${p.githubRepo}`:'Repository not connected'}</span><span>Deadline {p.deadline||'—'}</span></div></Link>})}</div>
+    <PageHeader eyebrow="Repository workspace" title="My projects" description="Your assigned work, repository, diary and teacher assessment."/>
+    <div className="project-grid">{projects.map(p=>{const a=assignments.find(x=>x.id===p.assignmentId);return <Link href={`/projects/${p.id}`} className="panel project-list-card" key={p.id}><div className="panel-title"><div><Badge tone="purple">{p.status}</Badge><h3>{p.name}</h3></div></div><p>{a?.description||p.assignment||'Project workspace'}</p><div className="project-meta"><span>{p.githubRepo?`${p.githubOwner}/${p.githubRepo}`:'Repository not connected'}</span><span>Deadline {p.deadline||'—'}</span></div></Link>})}</div>
   </AppShell>;
 }

@@ -8,6 +8,7 @@ import './gamification-wow.css';
 import './music.css';
 import './music-realtime.css';
 import './assessment-manager.css';
+import './groups-manager.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

@@ -10,6 +10,7 @@ import './music-realtime.css';
 import './assessment-manager.css';
 import './groups-manager.css';
 import './teacher-projects.css';
+import './teacher-review.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

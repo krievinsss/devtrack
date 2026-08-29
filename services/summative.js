@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { readJson,updateJson } from '@/lib/storage';
+import { gradeFromPercent } from '@/lib/grading';
 
 export async function getSummativeEvents(assignmentId){return (await readJson('summativeAssessments',[])).filter(x=>x.assignmentId===assignmentId).sort((a,b)=>new Date(a.date)-new Date(b.date));}
 export async function createSummative(input,user){const item={id:`summative_${crypto.randomUUID()}`,assignmentId:input.assignmentId,title:input.title.trim(),date:input.date,description:(input.description||'').trim(),criteria:input.criteria,createdBy:user.id,createdAt:new Date().toISOString(),results:[]};await updateJson('summativeAssessments',[],x=>[item,...x]);return item;}
 export async function saveSummativeResult(input,user){let saved=null;await updateJson('summativeAssessments',[],events=>events.map(event=>{if(event.id!==input.eventId)return event;const scores=(event.criteria||[]).map(c=>({name:c.name,max:Number(c.max),score:Math.max(0,Math.min(Number(input.scores?.find(s=>s.name===c.name)?.score||0),Number(c.max)))}));const total=scores.reduce((s,x)=>s+x.score,0),maxTotal=scores.reduce((s,x)=>s+x.max,0),percent=maxTotal?Math.round(total/maxTotal*100):0;saved={studentId:input.studentId,scores,total,maxTotal,percent,grade:gradeFromPercent(percent),feedback:(input.feedback||'').trim(),gradedBy:user.id,publishedAt:new Date().toISOString()};return {...event,results:[saved,...(event.results||[]).filter(r=>r.studentId!==input.studentId)]};}));return saved;}
-function gradeFromPercent(p){if(p>=90)return 10;if(p>=80)return 9;if(p>=70)return 8;if(p>=60)return 7;if(p>=50)return 6;if(p>=40)return 5;if(p>=30)return 4;if(p>=20)return 3;if(p>=10)return 2;return 1;}

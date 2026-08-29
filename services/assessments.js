@@ -1,16 +1,16 @@
 import crypto from 'node:crypto';
-import { readJson, updateJson } from '@/lib/storage';
+import { updateJson } from '@/lib/storage';
+import { gradeFromPercent } from '@/lib/grading';
 import { rewardAssessment } from '@/services/gamification';
 import { evaluateGamificationProgress } from '@/services/gamificationProgress';
 
-export async function getAssessment(projectId){ return (await readJson('assessments',[])).find(a=>a.projectId===projectId)||null; }
+export async function getAssessment(projectId){ return (await import('@/lib/storage')).readJson('assessments',[]).then(items=>items.find(a=>a.projectId===projectId)||null); }
 
 export async function saveAssessment(input,user){
-  const settings=await readJson('settings',{});
   const total=input.criteria.reduce((s,c)=>s+Number(c.score),0);
   const maxTotal=input.criteria.reduce((s,c)=>s+Number(c.max),0);
-  const percent=Math.round(total/maxTotal*100);
-  const grade=(settings.assessmentGradeMap||[]).find(x=>percent>=x.min)?.grade||1;
+  const percent=maxTotal?Math.round(total/maxTotal*100):0;
+  const grade=gradeFromPercent(percent);
   const item={id:input.id||`assessment_${crypto.randomUUID()}`,projectId:input.projectId,studentId:input.studentId,teacherId:user.id,criteria:input.criteria,total,maxTotal,percent,grade,updatedAt:new Date().toISOString()};
   await updateJson('assessments',[],arr=>[item,...arr.filter(a=>!(a.projectId===input.projectId&&a.studentId===input.studentId))]);
   try{

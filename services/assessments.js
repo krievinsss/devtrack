@@ -1,10 +1,10 @@
 import crypto from 'node:crypto';
-import { updateJson } from '@/lib/storage';
+import { readJson,updateJson } from '@/lib/storage';
 import { gradeFromPercent } from '@/lib/grading';
 import { rewardAssessment } from '@/services/gamification';
 import { evaluateGamificationProgress } from '@/services/gamificationProgress';
 
-export async function getAssessment(projectId){ return (await import('@/lib/storage')).readJson('assessments',[]).then(items=>items.find(a=>a.projectId===projectId)||null); }
+export async function getAssessment(projectId){ return (await readJson('assessments',[])).find(a=>a.projectId===projectId)||null; }
 
 export async function saveAssessment(input,user){
   const total=input.criteria.reduce((s,c)=>s+Number(c.score),0);

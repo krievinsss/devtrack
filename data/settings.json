@@ -2,5 +2,16 @@
   "appName":"DevTrack",
   "tagline":"More than grades. Real progress.",
   "risk":{"attendanceBelow":60,"inactivityDays":14},
-  "assessmentGradeMap":[{"min":95,"grade":10},{"min":85,"grade":9},{"min":75,"grade":8},{"min":65,"grade":7},{"min":55,"grade":6},{"min":45,"grade":5},{"min":35,"grade":4},{"min":0,"grade":3}]
+  "assessmentGradeMap":[
+    {"min":97,"grade":10},
+    {"min":92,"grade":9},
+    {"min":84,"grade":8},
+    {"min":76,"grade":7},
+    {"min":68,"grade":6},
+    {"min":60,"grade":5},
+    {"min":45,"grade":4},
+    {"min":30,"grade":3},
+    {"min":15,"grade":2},
+    {"min":0,"grade":1}
+  ]
 }

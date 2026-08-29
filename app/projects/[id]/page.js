@@ -13,6 +13,7 @@ import { repoFile,repoTree } from '@/services/github';
 import { weeklySeries,contributionDays } from '@/services/analytics';
 import { getAssignment,assignmentIsActive } from '@/services/assignments';
 import { getFormativeEvents } from '@/services/formative';
+import { getSummativeEvents } from '@/services/summative';
 
 export default async function Project({params}){
   const user=await requirePageUser();
@@ -24,9 +25,12 @@ export default async function Project({params}){
   const student=await getUser(project.studentId);
   if(!project.githubInstallationId&&student?.githubInstallationId){project={...project,githubInstallationId:student.githubInstallationId};try{const saved=await patchProject(id,{githubInstallationId:student.githubInstallationId});if(saved)project=saved;}catch(error){console.error('GitHub installation inheritance failed',{projectId:id,studentId:student.id,error});}}
   const commits=(await readJson('commits',[])).filter(c=>c.repositoryId===id).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
-  const feedback=await getFeedback(id);const assessment=await getAssessment(id);const formative=assignment?await getFormativeEvents(assignment.id):[];const review=user.role==='student'?null:(await readJson('aiReviews',[])).filter(r=>r.projectId===id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))[0]||null;
+  const feedback=await getFeedback(id);
+  const assessment=await getAssessment(id);
+  const [formative,summative]=assignment?await Promise.all([getFormativeEvents(assignment.id),getSummativeEvents(assignment.id)]):[[],[]];
+  const review=user.role==='student'?null:(await readJson('aiReviews',[])).filter(r=>r.projectId===id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))[0]||null;
 
-  if(user.role!=='student')return <AppShell user={user}><TeacherReviewWorkspace project={project} assignment={assignment} formative={formative} student={student} commits={commits} feedback={feedback} assessment={assessment} review={review}/></AppShell>;
+  if(user.role!=='student')return <AppShell user={user}><TeacherReviewWorkspace project={project} assignment={assignment} formative={formative} summative={summative} student={student} commits={commits} feedback={feedback} assessment={assessment} review={review}/></AppShell>;
 
   const attendance=(await readJson('attendance',[])).filter(a=>a.studentId===project.studentId).filter(a=>{const d=new Date(a.date||a.createdAt);const start=assignment?.startDate||project.startDate;const end=assignment?.deadline||project.deadline;return (!start||d>=new Date(start))&&(!end||d<=new Date(`${end}T23:59:59`));});
   let tree=[];let defaultFile=null;let githubError=null;

@@ -12,6 +12,7 @@ import './groups-manager.css';
 import './teacher-projects.css';
 import './teacher-review.css';
 import './assignment-hub.css';
+import './notifications.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

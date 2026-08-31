@@ -3,6 +3,7 @@ import { readJson,updateJson } from '@/lib/storage';
 import { gradeFromPercent } from '@/lib/grading';
 import { rewardAssessment } from '@/services/gamification';
 import { evaluateGamificationProgress } from '@/services/gamificationProgress';
+import { notifyStudent } from '@/services/notifications';
 
 export async function getAssessment(projectId){ return (await readJson('assessments',[])).find(a=>a.projectId===projectId)||null; }
 
@@ -18,6 +19,7 @@ export async function saveAssessment(input,user){
   try{
     const profile=await rewardAssessment(item);
     const progress=await evaluateGamificationProgress(item.studentId);
+    await notifyStudent(item.studentId,{type:'grade',title:'Gala atzīme publicēta',message:`Atzīme ${item.grade}${item.percent!=null?` · ${item.percent}%`:''}`,href:`/projects/${item.projectId}`,projectId:item.projectId});
     return {...item,gamification:{profile:progress?.profile||profile,newAchievements:progress?.newAchievements||[],achievementCredits:progress?.achievementCredits||0}};
   }catch(error){
     console.error('Gamification reward failed',{assessmentId:item.id,studentId:item.studentId,error});

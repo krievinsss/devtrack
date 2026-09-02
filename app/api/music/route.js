@@ -1,8 +1,10 @@
 import { z } from 'zod';
+import { after } from 'next/server';
 import { requireApiUser, fail, ok } from '@/lib/http';
 import { getUsers } from '@/services/users';
 import { getSpotifyAccount,spotifyNowPlaying,spotifyQueue } from '@/services/spotify';
-import { MUSIC_RULES,MUSIC_RULES_VERSION,acceptMusicRules,addMusicRequest,banMusicStudent,getMusicAccess,getMusicAccessList,getMusicQueue,getMusicSettings,moderateMusicRequest,payMusicFine,removeMusicRequest,setMusicRequestsEnabled,setMusicRequestStatus,unbanMusicStudent } from '@/services/music';
+import { MUSIC_RULES,MUSIC_RULES_VERSION,acceptMusicRules,addMusicRequest,banMusicStudent,getMusicAccess,getMusicAccessList,getMusicSnapshot,getMusicSettings,moderateMusicRequest,payMusicFine,removeMusicRequest,setMusicRequestsEnabled,setMusicRequestStatus,unbanMusicStudent } from '@/services/music';
+import { evaluateGamificationProgress } from '@/services/gamificationProgress';
 
 const requestSchema=z.object({action:z.literal('request'),title:z.string().min(1),artist:z.string().optional().default(''),spotifyUrl:z.string().optional().default(''),spotifyId:z.string().optional().default(''),spotifyUri:z.string().optional().default(''),image:z.string().optional().default(''),durationMs:z.coerce.number().optional().default(0),explicit:z.boolean().optional().default(false)});
 const actionSchema=z.union([
@@ -24,13 +26,13 @@ async function connectedSpotifyOwner(users){
 }
 
 async function reconcileQueueWithSpotify(owner,queue){
-  if(!owner||!queue.length)return {queue,nowPlaying:null};
+  if(!owner||!queue.length)return {queue,nowPlaying:null,completedStudentIds:[]};
   let nowPlaying=null;
-  try{nowPlaying=await spotifyNowPlaying(owner.id)}catch{return {queue,nowPlaying:null}}
-  if(!nowPlaying?.id)return {queue,nowPlaying};
+  try{nowPlaying=await spotifyNowPlaying(owner.id)}catch{return {queue,nowPlaying:null,completedStudentIds:[]}}
+  if(!nowPlaying?.id)return {queue,nowPlaying,completedStudentIds:[]};
 
   const playingIndex=queue.findIndex(item=>item.spotifyId===nowPlaying.id);
-  if(playingIndex<0)return {queue,nowPlaying};
+  if(playingIndex<0)return {queue,nowPlaying,completedStudentIds:[]};
 
   // If Spotify has reached a queued DevTrack request, that request is no longer waiting.
   // Any older DevTrack entries before it have necessarily already been passed as well.
@@ -41,28 +43,31 @@ async function reconcileQueueWithSpotify(owner,queue){
         playedAt:new Date().toISOString(),
         autoReconciled:true,
         spotifyNowPlayingId:nowPlaying.id
-      });
+      },item);
     }catch{
       // Another polling client may have reconciled it milliseconds earlier.
     }
   }
-  return {queue:await getMusicQueue(),nowPlaying};
+  return {queue:queue.slice(playingIndex+1),nowPlaying,completed,completedStudentIds:[...new Set(completed.map(x=>x.studentId).filter(Boolean))]};
 }
 
 export async function GET(){
   const auth=await requireApiUser(['student','teacher','admin']);
   if(auth.error)return auth.error;
   try{
-    const [settings,initialQueue,users]=await Promise.all([getMusicSettings(),getMusicQueue(),getUsers()]);
+    const [settings,music,users]=await Promise.all([getMusicSettings(),getMusicSnapshot(),getUsers()]);
     const spotifyOwner=await connectedSpotifyOwner(users);
-    const reconciled=await reconcileQueueWithSpotify(spotifyOwner,initialQueue);
+    const reconciled=await reconcileQueueWithSpotify(spotifyOwner,music.queue);
+    const newlyPlayed=(reconciled.completed||[]).map(item=>({...item,status:'played',playedAt:new Date().toISOString(),autoReconciled:true,spotifyNowPlayingId:reconciled.nowPlaying?.id}));
     const payload={
       settings:{...settings,spotifyConnected:!!spotifyOwner},
       queue:reconciled.queue,
       nowPlaying:reconciled.nowPlaying,
       rules:MUSIC_RULES,
-      rulesVersion:MUSIC_RULES_VERSION
+      rulesVersion:MUSIC_RULES_VERSION,
+      history:[...newlyPlayed,...music.history].slice(0,100)
     };
+    if(reconciled.completedStudentIds.length)after(()=>Promise.all(reconciled.completedStudentIds.map(id=>evaluateGamificationProgress(id))));
     if(auth.user.role==='student'){
       payload.access=await getMusicAccess(auth.user.id);
     }else{
@@ -96,9 +101,10 @@ export async function POST(req){
         result=await addMusicRequest(auth.user,{...body,status:'requested'});
         try{
           await spotifyQueue(owner.id,body.spotifyUri);
-          result=await setMusicRequestStatus(result.id,'queued',{spotifyQueuedAt:new Date().toISOString()});
+          result=await setMusicRequestStatus(result.id,'queued',{spotifyQueuedAt:new Date().toISOString()},result);
+          after(()=>evaluateGamificationProgress(auth.user.id));
         }catch(e){
-          await setMusicRequestStatus(result.id,'failed',{spotifyError:e.message||'Spotify queue failed'});
+          await setMusicRequestStatus(result.id,'failed',{spotifyError:e.message||'Spotify queue failed'},result);
           throw e;
         }
         break;

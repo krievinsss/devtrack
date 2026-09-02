@@ -11,6 +11,7 @@ export async function POST(request){
     const body=schema.parse(await request.json());
     const user=(await getUsers()).find(u=>u.email.toLowerCase()===body.email.toLowerCase());
     if(!user)return fail('Nepareizs e-pasts vai parole',401);
+    if(process.env.NODE_ENV==='production'&&user.role==='student'&&user.email.toLowerCase().endsWith('@devtrack.local'))return fail('Nepareizs e-pasts vai parole',401);
 
     const valid=user.passwordHash
       ? verifyPassword(body.password,user.passwordHash)

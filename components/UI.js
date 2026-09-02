@@ -4,4 +4,4 @@ export function StatCard({label,value,sub,icon:Icon,tone}){return <div className
 export function Badge({children,tone='neutral'}){return <span className={`badge ${tone}`}>{children}</span>}
 export function Progress({value}){return <div className="progress"><span style={{width:`${Math.max(0,Math.min(100,value))}%`}}/></div>}
 export function Empty({title,body}){return <div className="empty"><ArrowUpRight size={24}/><b>{title}</b><span>{body}</span></div>}
-export function RelativeTime({date}){if(!date)return <span>—</span>;const d=Math.max(0,Math.floor((Date.now()-new Date(date))/1000));let t=d<60?`${d}s`:d<3600?`${Math.floor(d/60)}m`:d<86400?`${Math.floor(d/3600)}h`:`${Math.floor(d/86400)}d`;return <span className="muted-inline"><Clock3 size={13}/>{t} ago</span>}
+export function RelativeTime({date}){if(!date)return <span>—</span>;const d=Math.max(0,Math.floor((new Date().getTime()-new Date(date))/1000));let t=d<60?`${d}s`:d<3600?`${Math.floor(d/60)}m`:d<86400?`${Math.floor(d/3600)}h`:`${Math.floor(d/86400)}d`;return <span className="muted-inline"><Clock3 size={13}/>{t} ago</span>}

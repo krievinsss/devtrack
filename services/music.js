@@ -20,13 +20,29 @@ export async function acceptMusicRules(studentId){let saved;await updateJson('mu
 export function activeMusicBan(access){return!!(access?.banUntil&&new Date(access.banUntil).getTime()>Date.now())}
 
 async function musicEvents(){return readVersionedEvents('music',MUSIC_EVENT_KEY)}
-function reduceQueue(events){
+function reduceRequests(events){
   const map=new Map();
   for(const event of events){
     if(event.type==='add'&&event.request) map.set(event.request.id,event.request);
     if(event.type==='patch'&&event.requestId&&map.has(event.requestId)) map.set(event.requestId,{...map.get(event.requestId),...(event.patch||{}),updatedAt:event.eventAt||new Date().toISOString()});
   }
-  return [...map.values()].filter(x=>!['removed','failed','played'].includes(x.status)).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+  return [...map.values()];
+}
+function reduceQueue(events){
+  return reduceRequests(events).filter(x=>!['removed','failed','played'].includes(x.status)).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+}
+
+export async function getMusicSnapshot(limit=100){
+  const events=await musicEvents();
+  const rows=events.length?reduceRequests(events):await readJson('musicQueue',[]);
+  return {
+    queue:rows.filter(x=>!['removed','failed','played'].includes(x.status)).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)),
+    history:rows.filter(x=>['removed','failed','played'].includes(x.status)).sort((a,b)=>new Date(b.playedAt||b.removedAt||b.updatedAt||b.createdAt)-new Date(a.playedAt||a.removedAt||a.updatedAt||a.createdAt)).slice(0,limit)
+  };
+}
+
+export async function getMusicHistory(limit=100){
+  return (await getMusicSnapshot(limit)).history;
 }
 export async function getMusicQueue(){
   const events=await musicEvents();
@@ -49,8 +65,8 @@ export async function addMusicRequest(student,input){
   await appendVersionedEvent('music',MUSIC_EVENT_KEY,{type:'add',request:created});
   return created;
 }
-export async function setMusicRequestStatus(requestId,status,extra={}){
-  const current=(await getMusicQueue()).find(x=>x.id===requestId);
+export async function setMusicRequestStatus(requestId,status,extra={},knownRequest=null){
+  const current=knownRequest||(await getMusicQueue()).find(x=>x.id===requestId);
   if(!current)throw new Error('Request not found');
   const patch={...extra,status,updatedAt:new Date().toISOString()};
   await appendVersionedEvent('music',MUSIC_EVENT_KEY,{type:'patch',requestId,patch});
@@ -60,14 +76,16 @@ export async function removeMusicRequest(requestId,actor){
   const current=(await getMusicQueue()).find(x=>x.id===requestId);
   if(!current)throw new Error('Request not found');
   if(actor.role==='student'&&current.studentId!==actor.id)throw new Error('You can only remove your own request');
-  return setMusicRequestStatus(requestId,'removed',{removedBy:actor.id});
+  return setMusicRequestStatus(requestId,'removed',{removedBy:actor.id,removedAt:new Date().toISOString()},current);
 }
 export async function moderateMusicRequest(requestId,status,actor){
   if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');
   if(!['played','removed'].includes(status))throw new Error('Invalid queue status');
-  return setMusicRequestStatus(requestId,status,{moderatedBy:actor.id});
+  const current=(await getMusicQueue()).find(x=>x.id===requestId);
+  if(!current)throw new Error('Request not found');
+  return setMusicRequestStatus(requestId,status,{moderatedBy:actor.id,...(status==='removed'?{removedAt:new Date().toISOString()}:{playedAt:new Date().toISOString()})},current);
 }
 export async function setMusicRequestsEnabled(enabled,actor){if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');let saved;await updateJson('musicSettings',{},current=>{saved={...current,requestsEnabled:!!enabled,updatedAt:new Date().toISOString(),updatedBy:actor.id};return saved});return saved}
 export async function banMusicStudent(studentId,input,actor){if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');const durationMinutes=Math.max(1,Number(input.durationMinutes||60)),fine=Math.max(0,Number(input.fine??MUSIC_FINE_DEFAULT));let saved;await updateJson('musicAccess',[],rows=>{const current=rows.find(x=>x.studentId===studentId)||blankAccess(studentId);saved={...current,banUntil:new Date(Date.now()+durationMinutes*60000).toISOString(),banReason:String(input.reason||'Classroom music rules violation').trim(),severity:input.severity||'medium',fineDue:fine,finePaidAt:null,bannedBy:actor.id,updatedAt:new Date().toISOString()};return[saved,...rows.filter(x=>x.studentId!==studentId)]});return saved}
-export async function unbanMusicStudent(studentId,actor){if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');let saved;await updateJson('musicAccess',[],rows=>{const current=rows.find(x=>x.studentId===studentId)||blankAccess(studentId);saved={...current,banUntil:null,unbannedBy:actor.id,updatedAt:new Date().toISOString()};return[saved,...rows.filter(x=>x.studentId!==studentId)]});return saved}
+export async function unbanMusicStudent(studentId,actor){if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');let saved;await updateJson('musicAccess',[],rows=>{const current=rows.find(x=>x.studentId===studentId)||blankAccess(studentId);saved={...current,banUntil:null,banReason:'',severity:null,fineDue:0,finePaidAt:null,unbannedBy:actor.id,updatedAt:new Date().toISOString()};return[saved,...rows.filter(x=>x.studentId!==studentId)]});return saved}
 export async function payMusicFine(studentId){const access=await getMusicAccess(studentId),fine=Math.max(0,Number(access.fineDue||0));if(!fine)return access;await updateJson('gamificationProfiles',[],rows=>{const profile=rows.find(x=>x.studentId===studentId);if(!profile)throw new Error('Gamification profile not found');if(Number(profile.credits||0)<fine)throw new Error(`You need ${fine} DevCredits to pay this fine`);const updated={...profile,credits:Number(profile.credits)-fine,updatedAt:new Date().toISOString()};return[updated,...rows.filter(x=>x.studentId!==studentId)]});let saved;await updateJson('musicAccess',[],rows=>{const current=rows.find(x=>x.studentId===studentId)||blankAccess(studentId);saved={...current,fineDue:0,finePaidAt:new Date().toISOString(),updatedAt:new Date().toISOString()};return[saved,...rows.filter(x=>x.studentId!==studentId)]});await updateJson('gamificationTransactions',[],rows=>[{id:`tx_${crypto.randomUUID()}`,studentId,type:'music_fine',credits:-fine,xp:0,label:'Classroom Music fine',createdAt:new Date().toISOString()},...rows]);return saved}

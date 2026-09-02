@@ -13,6 +13,7 @@ import './teacher-projects.css';
 import './teacher-review.css';
 import './assignment-hub.css';
 import './notifications.css';
+import './teacher-hub.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

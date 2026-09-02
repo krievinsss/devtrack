@@ -1,2 +1,7 @@
-import Link from 'next/link';import AppShell from '@/components/AppShell';import { PageHeader,Badge,RelativeTime } from '@/components/UI';import { Status } from '@/components/DashboardViews';import { requirePageUser } from '@/lib/page';import { getStudents } from '@/services/users';import { readJson } from '@/lib/storage';import { studentAnalytics } from '@/services/analytics';
-export default async function Students(){const user=await requirePageUser(['teacher','admin']);const groups=await readJson('groups',[]);const students=await Promise.all((await getStudents()).map(async s=>({...s,groupName:groups.find(g=>g.id===s.groupIds?.[0])?.name||'—',analytics:await studentAnalytics(s.id)})));return <AppShell user={user}><PageHeader eyebrow="People" title="Students" description="Progress, attendance and development activity across your groups."/><section className="panel"><div className="table-wrap"><table><thead><tr><th>Student</th><th>Group</th><th>Attendance</th><th>Projects</th><th>Commits</th><th>Score</th><th>Last activity</th><th>Status</th></tr></thead><tbody>{students.map(s=><tr key={s.id}><td><Link className="student-link" href={`/students/${s.id}`}><span className="avatar small">{s.firstName[0]}{s.lastName[0]}</span><span><b>{s.firstName} {s.lastName}</b><small>@{s.githubUsername}</small></span></Link></td><td><Badge>{s.groupName}</Badge></td><td>{s.analytics.attendance.percentage}%</td><td>{s.analytics.projects.length}</td><td>{s.analytics.totalCommits}</td><td>{s.analytics.averageScore}</td><td><RelativeTime date={s.analytics.lastActivity}/></td><td><Status value={s.analytics.status}/></td></tr>)}</tbody></table></div></section></AppShell>}
+import { redirect } from 'next/navigation';
+import { requirePageUser } from '@/lib/page';
+
+export default async function Students(){
+  await requirePageUser(['teacher','admin']);
+  redirect('/groups');
+}

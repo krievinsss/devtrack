@@ -1,0 +1,178 @@
+.projects-overview-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.projects-overview-section > div:first-child h2 {
+  margin: 5px 0 4px;
+  font-size: 22px;
+  letter-spacing: -.03em;
+}
+
+.projects-overview-section > div:first-child p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.music-admin-v2 main,
+.music-admin-v2 aside {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.music-history .panel-title h3,
+.music-ban-list .panel-title h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+}
+
+.music-history-count {
+  min-width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.music-history-list {
+  max-height: 430px;
+  overflow: auto;
+}
+
+.music-history-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.music-history-row:last-child { border-bottom: 0; }
+.music-history-row img,
+.music-history-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.music-history-cover { display: grid; place-items: center; }
+.music-history-row > div:nth-child(2) { min-width: 0; }
+.music-history-row b,
+.music-history-row span,
+.music-history-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.music-history-row b { font-size: 10px; }
+.music-history-row span,
+.music-history-row small { color: var(--muted); font-size: 8px; margin-top: 2px; }
+.music-state.removed,
+.music-state.failed { color: var(--danger); border-color: color-mix(in srgb,var(--danger) 28%,var(--border)); }
+
+.music-ban-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.music-ban-list-rows { display: flex; flex-direction: column; }
+.music-ban-item { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.music-ban-item:last-child { border-bottom: 0; }
+.music-ban-item b,
+.music-ban-item span,
+.music-ban-item small { display: block; }
+.music-ban-item b { font-size: 10px; }
+.music-ban-item span { color: var(--text); font-size: 8px; margin-top: 3px; }
+.music-ban-item small { color: var(--muted); font-size: 8px; margin-top: 3px; line-height: 1.4; }
+.music-ban-item > div:last-child { display: flex; gap: 5px; }
+.music-ban-item button { width: 29px; height: 29px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); cursor: pointer; }
+.music-empty-state.compact { padding: 18px 8px; }
+
+.gradebook { display: flex; flex-direction: column; gap: 16px; }
+.gradebook-controls { display: grid; grid-template-columns: minmax(170px,.55fr) minmax(260px,1fr) auto; gap: 12px; align-items: end; }
+.gradebook-controls label span { display: block; margin-bottom: 6px; color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.gradebook-controls .btn { height: 42px; }
+.gradebook-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.gradebook-stats > div { padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.gradebook-stats b,
+.gradebook-stats span { display: block; }
+.gradebook-stats b { font-size: 21px; }
+.gradebook-stats span { margin-top: 3px; color: var(--muted); font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.gradebook-sheet { padding: 0 !important; overflow: hidden; }
+.gradebook-scroll { overflow: auto; }
+.gradebook-sheet table { min-width: 850px; }
+.gradebook-sheet th { min-width: 118px; vertical-align: bottom; }
+.gradebook-sheet th:first-child { min-width: 220px; position: sticky; left: 0; z-index: 3; background: var(--bg); }
+.gradebook-sheet td:first-child { position: sticky; left: 0; z-index: 2; background: var(--card); }
+.gradebook-sheet th > span,
+.gradebook-sheet th > b,
+.gradebook-sheet th > small { display: block; }
+.gradebook-sheet th > span { color: var(--primary); font-size: 7px; text-transform: uppercase; }
+.gradebook-sheet th > b { margin: 3px 0; color: var(--text); font-size: 9px; line-height: 1.3; text-transform: none; }
+.gradebook-sheet th > small { color: var(--muted); font-size: 7px; font-weight: 600; text-transform: none; }
+.gradebook-student { display: flex; align-items: center; gap: 9px; }
+.gradebook-student > span { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border: 1px solid color-mix(in srgb,var(--primary) 22%,var(--border)); border-radius: 9px; background: color-mix(in srgb,var(--primary) 8%,var(--card)); color: var(--primary); font-size: 9px; font-weight: 900; }
+.gradebook-student b,
+.gradebook-student small { display: block; }
+.gradebook-student b { font-size: 10px; }
+.gradebook-student small { margin-top: 2px; color: var(--muted); font-size: 8px; }
+.gradebook-cell { min-width: 54px; height: 46px; display: inline-grid; grid-template-columns: auto; place-content: center; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); cursor: pointer; transition: .15s ease; }
+.gradebook-cell:hover { border-color: color-mix(in srgb,var(--primary) 45%,var(--border)); transform: translateY(-1px); }
+.gradebook-cell strong,
+.gradebook-cell span { display: block; }
+.gradebook-cell strong { font-size: 16px; line-height: 1; }
+.gradebook-cell span { margin-top: 3px; color: var(--muted); font-size: 7px; }
+.gradebook-cell.graded { border-color: color-mix(in srgb,var(--green) 26%,var(--border)); background: color-mix(in srgb,var(--green) 5%,var(--card)); }
+.gradebook-cell.graded strong { color: var(--green); }
+.gradebook-cell:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+.gradebook-project-link { display: inline-flex; align-items: center; gap: 3px; color: var(--primary); font-size: 9px; font-weight: 800; }
+.gradebook-empty { padding: 48px; text-align: center; color: var(--muted); }
+.gradebook-empty svg { color: var(--primary); }
+.gradebook-empty h2 { margin: 10px 0 5px; color: var(--text); font-size: 18px; }
+.gradebook-empty p { margin: 0; font-size: 10px; }
+.grade-editor-backdrop { position: fixed; inset: 0; z-index: 700; display: flex; justify-content: flex-end; background: rgba(2,6,23,.68); backdrop-filter: blur(8px); }
+.grade-editor { width: min(560px,96vw); height: 100%; display: flex; flex-direction: column; background: var(--card); border-left: 1px solid var(--border); box-shadow: -25px 0 80px rgba(2,6,23,.34); }
+.grade-editor > header,
+.grade-editor > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 20px; border-bottom: 1px solid var(--border); }
+.grade-editor > header h2 { margin: 4px 0 2px; font-size: 20px; }
+.grade-editor > header p { margin: 0; color: var(--muted); font-size: 9px; }
+.grade-editor > footer { justify-content: flex-end; border-top: 1px solid var(--border); border-bottom: 0; }
+.grade-editor-summary { display: grid; grid-template-columns: repeat(3,1fr); border-bottom: 1px solid var(--border); background: var(--bg); }
+.grade-editor-summary > div { padding: 13px 20px; border-right: 1px solid var(--border); }
+.grade-editor-summary > div:last-child { border: 0; }
+.grade-editor-summary span,
+.grade-editor-summary b { display: block; }
+.grade-editor-summary span { color: var(--muted); font-size: 8px; text-transform: uppercase; font-weight: 800; }
+.grade-editor-summary b { margin-top: 4px; font-size: 18px; }
+.grade-editor-body { flex: 1; overflow: auto; padding: 18px 20px; }
+.grade-editor-criterion { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 16px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.grade-editor-criterion b,
+.grade-editor-criterion span { display: block; }
+.grade-editor-criterion b { font-size: 10px; }
+.grade-editor-criterion span { margin-top: 3px; color: var(--muted); font-size: 8px; }
+.grade-editor-criterion > div:last-child { display: flex; align-items: center; gap: 7px; }
+.grade-editor-criterion input { width: 74px; text-align: center; }
+.grade-editor-note { display: block; margin-top: 14px; }
+.grade-editor-note > span { display: block; margin-bottom: 6px; font-size: 9px; font-weight: 800; }
+.grade-editor-note textarea { min-height: 82px; }
+.save-spinner { width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: gradeSpin .7s linear infinite; }
+@keyframes gradeSpin { to { transform: rotate(360deg); } }
+
+@media (max-width: 1050px) {
+  .music-admin-v2 .music-admin-actions { display: flex; }
+}
+
+@media (max-width: 800px) {
+  .gradebook-controls { grid-template-columns: 1fr; }
+  .gradebook-stats { grid-template-columns: repeat(2,1fr); }
+}
+
+@media (max-width: 520px) {
+  .gradebook-stats { grid-template-columns: 1fr; }
+  .grade-editor { width: 100vw; }
+}

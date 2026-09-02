@@ -1,5 +1,6 @@
 import { requireApiUser,fail } from '@/lib/http';
 import { getProject } from '@/services/projects';
+import { createGitHubState } from '@/lib/githubState';
 
 export async function GET(req){
   const auth=await requireApiUser();
@@ -14,6 +15,6 @@ export async function GET(req){
   const project=projectId?await getProject(projectId):null;
   if(!project||project.studentId!==auth.user.id)return fail('Project not found or not owned by student',403);
 
-  const state=Buffer.from(JSON.stringify({projectId,userId:auth.user.id,ts:Date.now()})).toString('base64url');
+  const state=createGitHubState({projectId,userId:auth.user.id});
   return Response.redirect(`https://github.com/apps/${slug}/installations/new?state=${state}`);
 }

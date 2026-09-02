@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable react/no-unescaped-entities */
 import { useMemo,useState } from 'react';
 import Link from 'next/link';
 import { Sparkles,Github,GitCommitHorizontal,Check,AlertTriangle,MessageSquareText,Award,Save,RefreshCw,Target,ChevronDown,ExternalLink,Flag } from 'lucide-react';

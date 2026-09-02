@@ -10,5 +10,5 @@ export default async function Groups(){
   const user=await requirePageUser(['teacher','admin']);
   const [groups,users]=await Promise.all([readJson('groups',[]),getUsers()]);
   const students=users.filter(u=>u.role==='student');
-  return <AppShell user={user}><PageHeader eyebrow="Cohorts & accounts" title="Groups" description="Create groups, add or edit students, import a whole class from CSV and manage first-login passwords."/><GroupManager initialGroups={groups} users={students} defaultPassword={defaultStudentPassword()}/></AppShell>;
+  return <AppShell user={user}><PageHeader eyebrow="People & cohorts" title="Students & Groups" description="Manage groups and every student account from one place."/><GroupManager initialGroups={groups} users={students} defaultPassword={defaultStudentPassword()}/></AppShell>;
 }

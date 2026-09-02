@@ -2,6 +2,7 @@ import { currentUser } from '@/lib/auth';
 import { patchProject, getProject } from '@/services/projects';
 import { patchUser } from '@/services/users';
 import { listInstallationRepos } from '@/services/github';
+import { readGitHubState } from '@/lib/githubState';
 
 function redirect(req, path) {
   return Response.redirect(new URL(path, req.url));
@@ -23,8 +24,8 @@ export async function GET(req) {
 
     let projectId = null;
     try {
-      const decoded = JSON.parse(Buffer.from(state || '', 'base64url').toString());
-      if (decoded.userId === user.id && Date.now() - decoded.ts < 15 * 60 * 1000) projectId = decoded.projectId;
+      const decoded=readGitHubState(state);
+      if(decoded.userId===user.id)projectId=decoded.projectId;
     } catch {
       return redirect(req, '/projects?github=invalid_state');
     }

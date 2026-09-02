@@ -8,8 +8,7 @@ export async function assignmentsForGroup(groupId){ return (await getAssignments
 export function assignmentIsActive(assignment){ return assignment?.active!==false && assignment?.status!=='inactive'; }
 
 async function ensureStudentProjects(assignment){
-  const groups=await readJson('groups',[]); const group=groups.find(g=>g.id===assignment.groupId); if(!group)throw new Error('Group not found');
-  const users=await getUsers();
+  const [groups,users]=await Promise.all([readJson('groups',[]),getUsers()]); const group=groups.find(g=>g.id===assignment.groupId); if(!group)throw new Error('Group not found');
   await updateJson('projects',[],projects=>{
     const existing=new Set(projects.filter(p=>p.assignmentId===assignment.id).map(p=>p.studentId));
     const fresh=(group.studentIds||[]).filter(id=>!existing.has(id)).map(studentId=>{const s=users.find(u=>u.id===studentId);return {id:`project_${crypto.randomUUID()}`,assignmentId:assignment.id,studentId,name:assignment.title,slug:assignment.slug,type:'assigned_project',status:'Not started',technologies:assignment.technologies||[],githubOwner:'',githubRepo:'',defaultBranch:'main',githubInstallationId:s?.githubInstallationId||null,startDate:assignment.startDate,deadline:assignment.deadline,teacherScore:null,lastSyncedAt:null};});
@@ -21,8 +20,7 @@ async function ensureStudentProjects(assignment){
 export async function createAssignment(input,user){
   const groups=await readJson('groups',[]); const group=groups.find(g=>g.id===input.groupId); if(!group)throw new Error('Group not found');
   const assignment={id:`assignment_${crypto.randomUUID()}`,title:input.title.trim(),slug:input.slug||input.title.toLowerCase().replace(/[^a-z0-9]+/gi,'-').replace(/(^-|-$)/g,''),groupId:input.groupId,teacherId:user.id,description:input.description.trim(),descriptionHtml:input.descriptionHtml||'',requirements:input.requirements||[],technologies:input.technologies||[],rubric:input.rubric||[],startDate:input.startDate,deadline:input.deadline,active:input.active===true,status:input.active===true?'published':'inactive',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-  await updateJson('assignments',[],x=>[assignment,...x]);
-  await ensureStudentProjects(assignment);
+  await Promise.all([updateJson('assignments',[],x=>[assignment,...x]),ensureStudentProjects(assignment)]);
   return assignment;
 }
 
@@ -53,7 +51,6 @@ export async function setAssignmentActive(id,active,user){
 
 export async function deleteAssignment(id){
   const assignment=await getAssignment(id); if(!assignment)throw new Error('Project not found');
-  await updateJson('assignments',[],items=>items.filter(a=>a.id!==id));
-  await updateJson('projects',[],items=>items.filter(p=>p.assignmentId!==id));
+  await Promise.all([updateJson('assignments',[],items=>items.filter(a=>a.id!==id)),updateJson('projects',[],items=>items.filter(p=>p.assignmentId!==id))]);
   return assignment;
 }

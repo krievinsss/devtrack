@@ -2,7 +2,7 @@
 
 import { useCallback,useEffect,useRef,useState } from 'react';
 import { useRouter,useSearchParams } from 'next/navigation';
-import { AlertTriangle,CheckCircle2,ExternalLink,Github,Link2,Loader2,RefreshCw,Settings,X } from 'lucide-react';
+import { AlertTriangle,CheckCircle2,ExternalLink,Github,Link2,Loader2,RefreshCw,Settings,Unplug,X } from 'lucide-react';
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
@@ -17,6 +17,7 @@ export default function GitHubConnect({project}){
   const [message,setMessage]=useState('');
   const [menu,setMenu]=useState(false);
   const [picker,setPicker]=useState(false);
+  const [disconnectConfirm,setDisconnectConfirm]=useState(false);
   const [repoError,setRepoError]=useState('');
 
   const status=useCallback(async()=>{
@@ -143,6 +144,25 @@ export default function GitHubConnect({project}){
     }
   }
 
+  async function disconnectGitHub(){
+    setDisconnectConfirm(false);
+    setPhase('connecting');
+    setMessage('Atvienojam GitHub kontu…');
+    try{
+      const response=await fetch('/api/github/disconnect',{method:'POST'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.error||'Neizdevās atvienot GitHub kontu.');
+      setPhase('done');
+      setMessage('GitHub konts atvienots. Tagad vari pieslēgt citu kontu.');
+      router.refresh();
+      await sleep(850);
+      setPhase('');
+    }catch(error){
+      setPhase('error');
+      setMessage(error.message||'Neizdevās atvienot GitHub kontu.');
+    }
+  }
+
   function openRepositoryPicker(){
     setMenu(false);
     setSelected('');
@@ -166,6 +186,7 @@ export default function GitHubConnect({project}){
           <button onClick={manualSync}><RefreshCw size={15}/> Sync now</button>
           <a href={`https://github.com/${project.githubOwner}/${project.githubRepo}`} target="_blank" rel="noreferrer"><ExternalLink size={15}/> Open repository</a>
           <a href={`https://github.com/settings/installations/${project.githubInstallationId}`} target="_blank" rel="noreferrer"><Settings size={15}/> Manage access</a>
+          <button className="github-menu-danger" onClick={()=>{setMenu(false);setDisconnectConfirm(true)}}><Unplug size={15}/> Atvienot GitHub kontu</button>
         </div>}
       </div>
     </div>:
@@ -173,6 +194,7 @@ export default function GitHubConnect({project}){
     <div className="repo-connect">
       <select value={selected} onChange={event=>setSelected(event.target.value)} disabled={busy}><option value="">Select repository…</option>{repositoryOptions}</select>
       <button className="btn primary" onClick={linkRepository} disabled={!selected||busy}>{busy?<Loader2 size={16} className="spin"/>:<Link2 size={16}/>} Link repository</button>
+      <button className="btn secondary" type="button" onClick={()=>setDisconnectConfirm(true)}><Unplug size={16}/> Atvienot GitHub</button>
       {repoError&&<small className="github-repo-error">{repoError}</small>}
     </div>}
 
@@ -200,6 +222,19 @@ export default function GitHubConnect({project}){
           <button className="btn primary" disabled={!selected||busy}>{busy?<Loader2 size={16} className="spin"/>:<RefreshCw size={16}/>} Nomainīt repozitoriju</button>
         </div>
       </form>
+    </div>}
+
+    {disconnectConfirm&&<div className="github-repo-backdrop" onMouseDown={()=>setDisconnectConfirm(false)}>
+      <div className="github-disconnect-modal" role="alertdialog" aria-modal="true" aria-labelledby="github-disconnect-title" onMouseDown={event=>event.stopPropagation()}>
+        <div className="github-disconnect-icon"><Unplug size={23}/></div>
+        <h2 id="github-disconnect-title">Atvienot GitHub kontu?</h2>
+        <p>GitHub savienojums tiks noņemts no visiem taviem DevTrack projektiem. Tiks notīrīti arī iepriekš sinhronizētie commit dati.</p>
+        <div className="github-disconnect-note"><AlertTriangle size={17}/><span>GitHub App instalācija GitHub pusē netiks dzēsta. Pēc atvienošanas varēsi pieslēgt citu GitHub kontu.</span></div>
+        <div className="github-disconnect-actions">
+          <button className="btn secondary" type="button" onClick={()=>setDisconnectConfirm(false)}>Atcelt</button>
+          <button className="btn danger" type="button" onClick={disconnectGitHub}><Unplug size={16}/> Atvienot kontu</button>
+        </div>
+      </div>
     </div>}
 
     {phase&&<div className="github-loader-backdrop"><div className="github-loader-card">

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { requireApiUser, fail, ok } from '@/lib/http';
 import { getProject, patchProject } from '@/services/projects';
 import { listInstallationRepos } from '@/services/github';
+import { updateJson } from '@/lib/storage';
 
 const schema=z.object({projectId:z.string(),repoId:z.coerce.number()});
 
@@ -21,6 +22,7 @@ export async function POST(req){
     const repos=await listInstallationRepos(installationId);
     const repo=repos.find(r=>r.id===body.repoId);
     if(!repo)return fail('Repository not available to this GitHub account',404);
+    const repositoryChanged=project.githubOwner!==repo.owner.login||project.githubRepo!==repo.name;
 
     const updated=await patchProject(project.id,{
       githubInstallationId:installationId,
@@ -29,7 +31,8 @@ export async function POST(req){
       defaultBranch:repo.default_branch||'main',
       lastSyncedAt:null
     });
-    return ok({project:updated});
+    if(repositoryChanged)await updateJson('commits',[],items=>items.filter(commit=>commit.repositoryId!==project.id));
+    return ok({project:updated,repositoryChanged});
   }catch(e){
     return fail(e.message,400,e?.issues);
   }

@@ -3,7 +3,7 @@ import { after } from 'next/server';
 import { requireApiUser, fail, ok } from '@/lib/http';
 import { getUsers } from '@/services/users';
 import { getSpotifyAccount,spotifyNowPlaying,spotifyQueue } from '@/services/spotify';
-import { MUSIC_RULES,MUSIC_RULES_VERSION,acceptMusicRules,addMusicRequest,banMusicStudent,getMusicAccess,getMusicAccessList,getMusicSnapshot,getMusicSettings,moderateMusicRequest,payMusicFine,removeMusicRequest,setMusicRequestsEnabled,setMusicRequestStatus,unbanMusicStudent } from '@/services/music';
+import { MUSIC_RULES,MUSIC_RULES_VERSION,acceptMusicRules,addMusicRequest,banMusicStudent,clearMusicQueue,getMusicAccess,getMusicAccessList,getMusicSnapshot,getMusicSettings,moderateMusicRequest,payMusicFine,removeMusicRequest,setMusicRequestsEnabled,setMusicRequestStatus,unbanMusicStudent } from '@/services/music';
 import { evaluateGamificationProgress } from '@/services/gamificationProgress';
 
 const requestSchema=z.object({action:z.literal('request'),title:z.string().min(1),artist:z.string().optional().default(''),spotifyUrl:z.string().optional().default(''),spotifyId:z.string().optional().default(''),spotifyUri:z.string().optional().default(''),image:z.string().optional().default(''),durationMs:z.coerce.number().optional().default(0),explicit:z.boolean().optional().default(false)});
@@ -12,6 +12,7 @@ const actionSchema=z.union([
   requestSchema,
   z.object({action:z.literal('remove_request'),requestId:z.string()}),
   z.object({action:z.literal('moderate_request'),requestId:z.string(),status:z.enum(['played','removed'])}),
+  z.object({action:z.literal('clear_queue')}),
   z.object({action:z.literal('toggle_requests'),enabled:z.boolean()}),
   z.object({action:z.literal('ban_student'),studentId:z.string(),durationMinutes:z.coerce.number().positive(),reason:z.string().min(1),severity:z.enum(['low','medium','high']).default('medium'),fine:z.coerce.number().min(0).default(500)}),
   z.object({action:z.literal('unban_student'),studentId:z.string()}),
@@ -111,6 +112,7 @@ export async function POST(req){
       }
       case'remove_request':result=await removeMusicRequest(body.requestId,auth.user);break;
       case'moderate_request':result=await moderateMusicRequest(body.requestId,body.status,auth.user);break;
+      case'clear_queue':result=await clearMusicQueue(auth.user);break;
       case'toggle_requests':result=await setMusicRequestsEnabled(body.enabled,auth.user);break;
       case'ban_student':result=await banMusicStudent(body.studentId,body,auth.user);break;
       case'unban_student':result=await unbanMusicStudent(body.studentId,auth.user);break;

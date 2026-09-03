@@ -25,6 +25,7 @@ function reduceRequests(events){
   for(const event of events){
     if(event.type==='add'&&event.request) map.set(event.request.id,event.request);
     if(event.type==='patch'&&event.requestId&&map.has(event.requestId)) map.set(event.requestId,{...map.get(event.requestId),...(event.patch||{}),updatedAt:event.eventAt||new Date().toISOString()});
+    if(event.type==='clear'&&Array.isArray(event.requests)) for(const request of event.requests) map.set(request.id,{...(map.get(request.id)||{}),...request,updatedAt:event.eventAt||request.updatedAt});
   }
   return [...map.values()];
 }
@@ -84,6 +85,15 @@ export async function moderateMusicRequest(requestId,status,actor){
   const current=(await getMusicQueue()).find(x=>x.id===requestId);
   if(!current)throw new Error('Request not found');
   return setMusicRequestStatus(requestId,status,{moderatedBy:actor.id,...(status==='removed'?{removedAt:new Date().toISOString()}:{playedAt:new Date().toISOString()})},current);
+}
+export async function clearMusicQueue(actor){
+  if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');
+  const current=await getMusicQueue();
+  if(!current.length)return [];
+  const removedAt=new Date().toISOString();
+  const requests=current.map(request=>({...request,status:'removed',removedAt,removedBy:actor.id,moderatedBy:actor.id,removalReason:'queue_cleared',updatedAt:removedAt}));
+  await appendVersionedEvent('music',MUSIC_EVENT_KEY,{type:'clear',requests,clearedBy:actor.id,clearedAt:removedAt});
+  return requests;
 }
 export async function setMusicRequestsEnabled(enabled,actor){if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');let saved;await updateJson('musicSettings',{},current=>{saved={...current,requestsEnabled:!!enabled,updatedAt:new Date().toISOString(),updatedBy:actor.id};return saved});return saved}
 export async function banMusicStudent(studentId,input,actor){if(!['teacher','admin'].includes(actor.role))throw new Error('Teacher access required');const durationMinutes=Math.max(1,Number(input.durationMinutes||60)),fine=Math.max(0,Number(input.fine??MUSIC_FINE_DEFAULT));let saved;await updateJson('musicAccess',[],rows=>{const current=rows.find(x=>x.studentId===studentId)||blankAccess(studentId);saved={...current,banUntil:new Date(Date.now()+durationMinutes*60000).toISOString(),banReason:String(input.reason||'Classroom music rules violation').trim(),severity:input.severity||'medium',fineDue:fine,finePaidAt:null,bannedBy:actor.id,updatedAt:new Date().toISOString()};return[saved,...rows.filter(x=>x.studentId!==studentId)]});return saved}

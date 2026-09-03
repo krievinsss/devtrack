@@ -66,12 +66,10 @@ npm install
 npm run dev
 ```
 
-Demo password: `Demo123!` unless `DEVTRACK_DEMO_PASSWORD` is changed.
-
-Demo accounts:
-
-- Teacher: `teacher@devtrack.local`
-- Student: `janis@devtrack.local`
+The teacher signs in with `DEVTRACK_TEACHER_EMAIL` (defaults to
+`toms.ricards@vtdt.edu.lv`) and the initial `DEVTRACK_TEACHER_PASSWORD`. After
+sign-in, change the password in **Settings → Change password**. The saved
+password is hashed and takes precedence over the bootstrap environment value.
 
 ## Production storage
 
@@ -86,7 +84,8 @@ The service layer keeps business logic independent of the storage backend so Pos
 
 ```text
 AUTH_SECRET
-DEVTRACK_DEMO_PASSWORD
+DEVTRACK_TEACHER_EMAIL
+DEVTRACK_TEACHER_PASSWORD
 NEXT_PUBLIC_APP_URL
 BLOB_READ_WRITE_TOKEN
 
@@ -175,12 +174,11 @@ FormativeResult
 - role checks on API and pages
 - students cannot open another student's project
 - AI review endpoint requires teacher/admin role
-- `/ai-reviews` requires teacher/admin role
 - student UI contains no AI review navigation or AI scores
 - GitHub repository access is read-only
 - GitHub webhook payload is validated with `X-Hub-Signature-256`
 
-Before school-wide production use, replace shared demo-password auth with per-user credentials or school SSO and move high-concurrency storage to PostgreSQL/Neon/Supabase.
+Before school-wide production use, consider school SSO and move high-concurrency storage to PostgreSQL/Neon/Supabase.
 
 ## Deploy to Vercel
 

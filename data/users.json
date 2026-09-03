@@ -1,5 +1,5 @@
 [
-  {"id":"teacher_001","role":"teacher","firstName":"Toms","lastName":"Skolotājs","email":"teacher@devtrack.local","groupIds":["group_ipa23","group_ipb23"],"githubUsername":null,"deskplanUserId":null},
+  {"id":"teacher_001","role":"teacher","firstName":"Toms","lastName":"Skolotājs","email":"toms.ricards@vtdt.edu.lv","groupIds":["group_ipa23","group_ipb23"],"githubUsername":null,"deskplanUserId":null},
   {"id":"student_001","role":"student","firstName":"Jānis","lastName":"Bērziņš","email":"janis@devtrack.local","groupIds":["group_ipa23"],"githubUsername":"janisdev","deskplanUserId":"dp_101"},
   {"id":"student_002","role":"student","firstName":"Anna","lastName":"Kalniņa","email":"anna@devtrack.local","groupIds":["group_ipa23"],"githubUsername":"annakdev","deskplanUserId":"dp_102"},
   {"id":"student_003","role":"student","firstName":"Mārtiņš","lastName":"Ozols","email":"martins@devtrack.local","groupIds":["group_ipb23"],"githubUsername":"martinso","deskplanUserId":"dp_103"}

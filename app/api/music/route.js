@@ -105,7 +105,7 @@ export async function POST(req){
           result=await setMusicRequestStatus(result.id,'queued',{spotifyQueuedAt:new Date().toISOString()},result);
           after(()=>evaluateGamificationProgress(auth.user.id));
         }catch(e){
-          await setMusicRequestStatus(result.id,'failed',{spotifyError:e.message||'Spotify queue failed'},result);
+          await setMusicRequestStatus(result.id,'failed',{spotifyError:e.message||'Spotify queue failed',spotifyStatus:e.status||null,spotifyRetryAfter:e.retryAfter||0},result);
           throw e;
         }
         break;

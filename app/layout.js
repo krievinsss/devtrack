@@ -9,6 +9,7 @@ import './gamification-wow.css';
 import './music.css';
 import './music-realtime.css';
 import './music-quota.css';
+import './spotify-live.css';
 import './stackdev.css';
 import './assessment-manager.css';
 import './groups-manager.css';

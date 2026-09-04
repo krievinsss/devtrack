@@ -30,6 +30,7 @@ async function reconcileQueueWithSpotify(owner,queue){
   if(!owner||!queue.length)return {queue,nowPlaying:null,completedStudentIds:[]};
   let nowPlaying=null;
   try{nowPlaying=await spotifyNowPlaying(owner.id)}catch{return {queue,nowPlaying:null,completedStudentIds:[]}}
+  if(nowPlaying?.stale)return {queue,nowPlaying,completedStudentIds:[]};
   if(!nowPlaying?.id)return {queue,nowPlaying,completedStudentIds:[]};
 
   const playingIndex=queue.findIndex(item=>item.spotifyId===nowPlaying.id);
@@ -129,6 +130,6 @@ export async function POST(req){
     }
     return ok({result,...(allowance?{allowance}:{})});
   }catch(e){
-    return fail(e.message||'Music action failed',400,e?.issues);
+    return fail(e.message||'Music action failed',e.status===429?429:400,e?.issues);
   }
 }

@@ -3,7 +3,11 @@ import { unstable_cache } from 'next/cache';
 import { readJson, updateJson } from '@/lib/storage';
 
 const ACCOUNTS_KEY = 'spotifyAccounts';
+const RATE_LIMIT_KEY = 'spotifyRateLimit';
 const SCOPES = ['user-read-playback-state','user-read-currently-playing','user-modify-playback-state'];
+const SPOTIFY_NOW_PLAYING_SECONDS=15;
+const SPOTIFY_SEARCH_COOLDOWN_MS=2000;
+const runtime=globalThis.__devtrackSpotifyRuntime||(globalThis.__devtrackSpotifyRuntime={backoffUntil:0,backoffCheckedAt:0,searches:new Map(),snapshots:new Map()});
 
 function config(){
   const clientId=process.env.SPOTIFY_CLIENT_ID;
@@ -57,14 +61,29 @@ export async function exchangeSpotifyCode(code,userId){
 
 export async function getSpotifyAccount(userId){return (await readJson(ACCOUNTS_KEY,[])).find(x=>x.userId===userId)||null}
 
+function rateLimitError(until){const seconds=Math.max(1,Math.ceil((until-Date.now())/1000)),error=new Error(`Spotify rate limit reached. Try again in ${seconds} seconds.`);error.status=429;error.retryAfter=seconds;error.backoffUntil=until;return error}
+async function assertSpotifyAvailable(){
+  if(Date.now()-runtime.backoffCheckedAt>10000){
+    runtime.backoffCheckedAt=Date.now();
+    try{const saved=await readJson(RATE_LIMIT_KEY,{until:0});runtime.backoffUntil=Math.max(runtime.backoffUntil,Number(saved?.until||0))}catch{}
+  }
+  if(runtime.backoffUntil>Date.now())throw rateLimitError(runtime.backoffUntil);
+}
+async function rememberRateLimit(retryAfter){
+  const until=Date.now()+Math.max(1,Number(retryAfter||30))*1000;runtime.backoffUntil=Math.max(runtime.backoffUntil,until);runtime.backoffCheckedAt=Date.now();
+  try{await updateJson(RATE_LIMIT_KEY,{until:0},current=>({...current,until:Math.max(Number(current?.until||0),until),updatedAt:new Date().toISOString()}))}catch{}
+  return runtime.backoffUntil;
+}
+
 async function spotifyRaw(token,endpoint,options={}){
+  await assertSpotifyAvailable();
   const r=await fetch(`https://api.spotify.com/${endpoint}`,{...options,headers:{Authorization:`Bearer ${token}`,...(options.headers||{})},cache:'no-store'});
   if(r.status===204) return null;
   const text=await r.text(); let d=null; try{d=text?JSON.parse(text):null}catch{d=text}
   if(!r.ok){
     const retryAfter=Math.max(0,Number(r.headers.get('retry-after')||0));
-    const message=r.status===429?`Spotify rate limit reached${retryAfter?`. Try again in ${retryAfter} seconds.`:'. Try again shortly.'}`:d?.error?.message||d?.error_description||`Spotify API failed (${r.status})`;
-    const error=new Error(message);error.status=r.status;error.retryAfter=retryAfter;throw error;
+    if(r.status===429)throw rateLimitError(await rememberRateLimit(retryAfter));
+    const error=new Error(d?.error?.message||d?.error_description||`Spotify API failed (${r.status})`);error.status=r.status;throw error;
   }
   return d;
 }
@@ -89,18 +108,38 @@ async function loadSpotifySearch(userId,query){
 
 async function loadSpotifyNowPlaying(userId){
   const d=await spotifyApi(userId,'v1/me/player/currently-playing');
-  if(!d?.item) return null;
-  return {id:d.item.id,title:d.item.name,artist:d.item.artists?.map(a=>a.name).join(', ')||'',image:d.item.album?.images?.[1]?.url||d.item.album?.images?.[0]?.url||'',isPlaying:!!d.is_playing,spotifyUrl:d.item.external_urls?.spotify||'',fetchedAt:Date.now()};
+  const fetchedAt=Date.now();
+  if(!d?.item)return {nowPlaying:null,fetchedAt};
+  return {nowPlaying:{id:d.item.id,title:d.item.name,artist:d.item.artists?.map(a=>a.name).join(', ')||'',image:d.item.album?.images?.[1]?.url||d.item.album?.images?.[0]?.url||'',durationMs:Number(d.item.duration_ms||0),progressMs:Number(d.progress_ms||0),isPlaying:!!d.is_playing,spotifyUrl:d.item.external_urls?.spotify||'',fetchedAt},fetchedAt};
+}
+
+async function rememberNowPlaying(userId,snapshot){
+  if(runtime.snapshots.get(userId)?.fetchedAt===snapshot.fetchedAt)return;
+  runtime.snapshots.set(userId,snapshot);
+  try{
+    await updateJson('spotifyPlaybackSnapshots',[],rows=>{
+      const current=rows.find(item=>item.userId===userId),changed=current?.nowPlaying?.id!==snapshot.nowPlaying?.id||Boolean(current?.nowPlaying?.isPlaying)!==Boolean(snapshot.nowPlaying?.isPlaying),heartbeat=Date.now()-new Date(current?.checkedAt||0).getTime()>60000;
+      if(!changed&&!heartbeat)return rows;
+      const saved={userId,nowPlaying:snapshot.nowPlaying,sourceFetchedAt:snapshot.fetchedAt,checkedAt:new Date().toISOString()};
+      return[saved,...rows.filter(item=>item.userId!==userId)];
+    });
+  }catch{}
+}
+async function lastNowPlaying(userId,error){
+  let saved=runtime.snapshots.get(userId);
+  if(!saved){try{const row=(await readJson('spotifyPlaybackSnapshots',[])).find(item=>item.userId===userId);if(row)saved={nowPlaying:row.nowPlaying,fetchedAt:Number(row.sourceFetchedAt||new Date(row.checkedAt).getTime())}}catch{}}
+  if(saved)runtime.snapshots.set(userId,saved);
+  return saved?.nowPlaying?{...saved.nowPlaying,stale:true,rateLimitedUntil:error?.backoffUntil||null}:null;
 }
 
 // These reads are shared by every open classroom browser. Caching them in the
 // Next.js data cache prevents each student from consuming a separate Spotify
 // API call every few seconds.
 const cachedSpotifySearch=unstable_cache(loadSpotifySearch,['spotify-search-v1'],{revalidate:300});
-const cachedSpotifyNowPlaying=unstable_cache(loadSpotifyNowPlaying,['spotify-now-playing-v2'],{revalidate:300});
+const cachedSpotifyNowPlaying=unstable_cache(loadSpotifyNowPlaying,['spotify-now-playing-v3'],{revalidate:SPOTIFY_NOW_PLAYING_SECONDS});
 
-export async function spotifySearch(userId,query){return cachedSpotifySearch(userId,String(query||'').trim().toLowerCase())}
-export async function spotifyNowPlaying(userId){return cachedSpotifyNowPlaying(userId)}
+export async function spotifySearch(userId,query,requesterId=userId){const now=Date.now(),last=Number(runtime.searches.get(requesterId)||0);if(now-last<SPOTIFY_SEARCH_COOLDOWN_MS){const error=new Error('Please wait 2 seconds before searching Spotify again');error.status=429;error.retryAfter=2;throw error}runtime.searches.set(requesterId,now);return cachedSpotifySearch(userId,String(query||'').trim().toLowerCase())}
+export async function spotifyNowPlaying(userId){try{const snapshot=await cachedSpotifyNowPlaying(userId);await rememberNowPlaying(userId,snapshot);return snapshot.nowPlaying}catch(error){if(error.status===429)return lastNowPlaying(userId,error);throw error}}
 
 export async function spotifyQueue(userId,uri){
   const add=()=>spotifyApi(userId,`v1/me/player/queue?uri=${encodeURIComponent(uri)}`,{method:'POST'});

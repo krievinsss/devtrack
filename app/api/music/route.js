@@ -3,7 +3,7 @@ import { after } from 'next/server';
 import { requireApiUser, fail, ok } from '@/lib/http';
 import { getUsers } from '@/services/users';
 import { getSpotifyAccount,spotifyNowPlaying,spotifyQueue } from '@/services/spotify';
-import { MUSIC_RULES,MUSIC_RULES_VERSION,acceptMusicRules,addMusicRequest,banMusicStudent,clearMusicQueue,getMusicAccess,getMusicAccessList,getMusicSnapshot,getMusicSettings,moderateMusicRequest,payMusicFine,removeMusicRequest,setMusicRequestsEnabled,setMusicRequestStatus,unbanMusicStudent } from '@/services/music';
+import { MUSIC_RULES,MUSIC_RULES_VERSION,acceptMusicRules,addMusicRequest,banMusicStudent,chargeMusicRequest,clearMusicQueue,getMusicAccess,getMusicAccessList,getMusicAllowance,getMusicSnapshot,getMusicSettings,moderateMusicRequest,payMusicFine,refundMusicRequestCharge,removeMusicRequest,setMusicRequestsEnabled,setMusicRequestStatus,unbanMusicStudent } from '@/services/music';
 import { evaluateGamificationProgress } from '@/services/gamificationProgress';
 
 const requestSchema=z.object({action:z.literal('request'),title:z.string().min(1),artist:z.string().optional().default(''),spotifyUrl:z.string().optional().default(''),spotifyId:z.string().optional().default(''),spotifyUri:z.string().optional().default(''),image:z.string().optional().default(''),durationMs:z.coerce.number().optional().default(0),explicit:z.boolean().optional().default(false)});
@@ -71,6 +71,7 @@ export async function GET(){
     if(reconciled.completedStudentIds.length)after(()=>Promise.all(reconciled.completedStudentIds.map(id=>evaluateGamificationProgress(id))));
     if(auth.user.role==='student'){
       payload.access=await getMusicAccess(auth.user.id);
+      payload.allowance=await getMusicAllowance(auth.user.id,music.requests);
     }else{
       const access=await getMusicAccessList();
       payload.students=users.filter(u=>u.role==='student').map(s=>({id:s.id,name:`${s.firstName} ${s.lastName}`,email:s.email,access:access.find(a=>a.studentId===s.id)||null}));
@@ -87,7 +88,7 @@ export async function POST(req){
   if(auth.error)return auth.error;
   try{
     const body=actionSchema.parse(await req.json());
-    let result;
+    let result,allowance;
     switch(body.action){
       case'accept_rules':
         if(auth.user.role!=='student')throw new Error('Student action only');
@@ -101,13 +102,18 @@ export async function POST(req){
         if(!owner)throw new Error('Teacher Spotify is not connected');
         result=await addMusicRequest(auth.user,{...body,status:'requested'});
         try{
+          await chargeMusicRequest(auth.user.id,result);
           await spotifyQueue(owner.id,body.spotifyUri);
           result=await setMusicRequestStatus(result.id,'queued',{spotifyQueuedAt:new Date().toISOString()},result);
           after(()=>evaluateGamificationProgress(auth.user.id));
         }catch(e){
-          await setMusicRequestStatus(result.id,'failed',{spotifyError:e.message||'Spotify queue failed',spotifyStatus:e.status||null,spotifyRetryAfter:e.retryAfter||0},result);
+          await Promise.allSettled([
+            setMusicRequestStatus(result.id,'failed',{spotifyError:e.message||'Spotify queue failed',spotifyStatus:e.status||null,spotifyRetryAfter:e.retryAfter||0},result),
+            refundMusicRequestCharge(auth.user.id,result)
+          ]);
           throw e;
         }
+        allowance=await getMusicAllowance(auth.user.id);
         break;
       }
       case'remove_request':result=await removeMusicRequest(body.requestId,auth.user);break;
@@ -121,7 +127,7 @@ export async function POST(req){
         result=await payMusicFine(auth.user.id);
         break;
     }
-    return ok({result});
+    return ok({result,...(allowance?{allowance}:{})});
   }catch(e){
     return fail(e.message||'Music action failed',400,e?.issues);
   }

@@ -8,6 +8,8 @@ import './achievements-profile.css';
 import './gamification-wow.css';
 import './music.css';
 import './music-realtime.css';
+import './music-quota.css';
+import './stackdev.css';
 import './assessment-manager.css';
 import './groups-manager.css';
 import './teacher-projects.css';

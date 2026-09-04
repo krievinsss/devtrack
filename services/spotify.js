@@ -90,14 +90,14 @@ async function loadSpotifySearch(userId,query){
 async function loadSpotifyNowPlaying(userId){
   const d=await spotifyApi(userId,'v1/me/player/currently-playing');
   if(!d?.item) return null;
-  return {id:d.item.id,title:d.item.name,artist:d.item.artists?.map(a=>a.name).join(', ')||'',image:d.item.album?.images?.[1]?.url||d.item.album?.images?.[0]?.url||'',durationMs:d.item.duration_ms,progressMs:d.progress_ms||0,isPlaying:!!d.is_playing,spotifyUrl:d.item.external_urls?.spotify||'',fetchedAt:Date.now()};
+  return {id:d.item.id,title:d.item.name,artist:d.item.artists?.map(a=>a.name).join(', ')||'',image:d.item.album?.images?.[1]?.url||d.item.album?.images?.[0]?.url||'',isPlaying:!!d.is_playing,spotifyUrl:d.item.external_urls?.spotify||'',fetchedAt:Date.now()};
 }
 
 // These reads are shared by every open classroom browser. Caching them in the
 // Next.js data cache prevents each student from consuming a separate Spotify
 // API call every few seconds.
 const cachedSpotifySearch=unstable_cache(loadSpotifySearch,['spotify-search-v1'],{revalidate:300});
-const cachedSpotifyNowPlaying=unstable_cache(loadSpotifyNowPlaying,['spotify-now-playing-v1'],{revalidate:10});
+const cachedSpotifyNowPlaying=unstable_cache(loadSpotifyNowPlaying,['spotify-now-playing-v2'],{revalidate:300});
 
 export async function spotifySearch(userId,query){return cachedSpotifySearch(userId,String(query||'').trim().toLowerCase())}
 export async function spotifyNowPlaying(userId){return cachedSpotifyNowPlaying(userId)}

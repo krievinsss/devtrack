@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { readJson,updateJson,writeJson } from '@/lib/storage';
 import { gradeFromPercent } from '@/lib/grading';
 import { rewardGradedAssessment } from '@/services/assessmentRewards';
+import { evaluateGamificationProgress } from '@/services/gamificationProgress';
 import { notifyStudent } from '@/services/notifications';
 
 export async function getSummativeEvents(assignmentId){return (await readJson('summativeAssessments',[])).filter(x=>x.assignmentId===assignmentId).sort((a,b)=>new Date(a.date)-new Date(b.date))}
@@ -28,7 +29,7 @@ export async function saveSummativeResult(input,user){
 
 export async function processSummativeSideEffects(input,saved){
   if(!saved)return;
-  try{await Promise.all([rewardGradedAssessment({studentId:input.studentId,sourceId:input.eventId,sourceType:'summative',grade:saved.grade,label:`${saved.eventTitle} · grade ${saved.grade}`}),notifySummativeStudent(input,saved)])}
+  try{await rewardGradedAssessment({studentId:input.studentId,sourceId:input.eventId,sourceType:'summative',grade:saved.grade,label:`${saved.eventTitle} · grade ${saved.grade}`});await Promise.all([evaluateGamificationProgress(input.studentId),notifySummativeStudent(input,saved)])}
   catch(error){console.error('Summative side effects failed',{eventId:input.eventId,studentId:input.studentId,error})}
 }
 

@@ -147,8 +147,8 @@ export default function GamificationShop({
           <span className="eyebrow">DEVTRACK REWARDS</span>
           <h1>Build your developer identity.</h1>
           <p>
-            Grades earn XP and DevCredits. Level up, collect cosmetics and unlock
-            rare items that money cannot buy.
+            Formative grades earn 25% XP, summative grades 50%, and final project
+            grades 100%. Level up, collect cosmetics and unlock rare items.
           </p>
           <div className="hero-meme-row">
             <span>YOLO</span><span>sigma</span><span>six seven</span>
@@ -351,7 +351,7 @@ export default function GamificationShop({
 
           <section className="panel transaction-panel">
             <div className="panel-title">
-              <div><h3><History size={17} /> Recent rewards</h3><small>Credit history</small></div>
+              <div><h3><History size={17} /> Recent rewards</h3><small>DevCredits and XP history</small></div>
             </div>
             {transactions.slice(0, 10).map((transaction) => (
               <div className="transaction-row" key={transaction.id}>
@@ -359,9 +359,10 @@ export default function GamificationShop({
                   <b>{transaction.label}</b>
                   <small>{new Date(transaction.createdAt).toLocaleDateString('lv-LV')}</small>
                 </div>
-                <span className={Number(transaction.credits) >= 0 ? 'positive' : 'negative'}>
-                  {Number(transaction.credits) > 0 ? '+' : ''}{transaction.credits} DC
-                </span>
+                <div className="transaction-values">
+                  {Number(transaction.xp)!==0&&<span className={Number(transaction.xp)>0?'positive':'negative'}>{Number(transaction.xp)>0?'+':''}{transaction.xp} XP</span>}
+                  {Number(transaction.credits)!==0&&<span className={Number(transaction.credits)>0?'positive':'negative'}>{Number(transaction.credits)>0?'+':''}{transaction.credits} DC</span>}
+                </div>
               </div>
             ))}
           </section>

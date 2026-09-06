@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { readJson,updateJson,writeJson } from '@/lib/storage';
 import { gradeFromPercent } from '@/lib/grading';
 import { rewardGradedAssessment } from '@/services/assessmentRewards';
+import { evaluateGamificationProgress } from '@/services/gamificationProgress';
 import { notifyStudent } from '@/services/notifications';
 
 export async function getFormativeEvents(assignmentId){return (await readJson('formativeAssessments',[])).filter(x=>x.assignmentId===assignmentId).sort((a,b)=>new Date(b.date)-new Date(a.date))}
@@ -28,7 +29,7 @@ export async function saveFormativeResult(input,user){
 
 export async function processFormativeSideEffects(input,saved){
   if(!saved)return;
-  try{await Promise.all([rewardGradedAssessment({studentId:input.studentId,sourceId:input.eventId,sourceType:'formative',grade:saved.grade,label:`${saved.eventTitle} · ${saved.percent}%`}),notifyFormativeStudent(input,saved)])}
+  try{await rewardGradedAssessment({studentId:input.studentId,sourceId:input.eventId,sourceType:'formative',grade:saved.grade,label:`${saved.eventTitle} · ${saved.percent}%`});await Promise.all([evaluateGamificationProgress(input.studentId),notifyFormativeStudent(input,saved)])}
   catch(error){console.error('Formative side effects failed',{eventId:input.eventId,studentId:input.studentId,error})}
 }
 

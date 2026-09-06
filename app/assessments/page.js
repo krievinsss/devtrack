@@ -13,7 +13,14 @@ export default async function Assessments(){
   const ids=new Set(projects.map(p=>p.id));
   const [assessments,users,groups,assignments,formative,summative]=await Promise.all([readJson('assessments',[]),getUsers(),readJson('groups',[]),readJson('assignments',[]),readJson('formativeAssessments',[]),readJson('summativeAssessments',[])]);
   const rows=assessments.filter(a=>ids.has(a.projectId));
-  if(user.role!=='student')return <AppShell user={user}><PageHeader eyebrow="Evaluation" title="Grades" description="Choose a group and project, then review or edit every grade from one table."/><TeacherGradebook groups={groups} students={users.filter(x=>x.role==='student')} assignments={assignments} projects={projects} initialFormative={formative} initialSummative={summative} initialFinal={rows}/></AppShell>;
+  if(user.role!=='student'){
+    const [commits,aiReviews]=await Promise.all([readJson('commits',[]),readJson('aiReviews',[])]);
+    const evidenceByProject=Object.fromEntries(projects.map(project=>[project.id,{
+      commits:commits.filter(item=>item.repositoryId===project.id).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).slice(0,100),
+      aiReviews:aiReviews.filter(item=>item.projectId===project.id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,10)
+    }]));
+    return <AppShell user={user}><PageHeader eyebrow="Evaluation" title="Grades" description="Choose a group and project, then review or edit every grade from one table."/><TeacherGradebook groups={groups} students={users.filter(x=>x.role==='student')} assignments={assignments} projects={projects} initialFormative={formative} initialSummative={summative} initialFinal={rows} evidenceByProject={evidenceByProject}/></AppShell>;
+  }
   return <AppShell user={user}>
     <PageHeader eyebrow="Evaluation" title="Assessments" description="Configurable criteria with transparent points and teacher-controlled final grading."/>
     <div className="project-grid">{rows.map(a=>{const p=projects.find(x=>x.id===a.projectId),s=users.find(x=>x.id===a.studentId);return <section className="panel" key={a.id}><div className="panel-title"><div><h3>{p?.name}</h3><small>{s?.firstName} {s?.lastName}</small></div><Badge tone="green">Grade {a.grade}</Badge></div><div className="assessment-total compact"><div><span>Points</span><b>{a.total}/{a.maxTotal}</b></div><div><span>Result</span><b>{a.percent}%</b></div></div><Progress value={a.percent}/></section>})}</div>

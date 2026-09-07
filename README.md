@@ -2,7 +2,7 @@
 
 **More than grades. Real progress.**
 
-DevTrack is a Vercel-friendly Next.js platform for programming teachers and students. It combines teacher-assigned projects, GitHub activity, a per-project development diary, formative assessment, final assessment, teacher feedback, private AI-assisted code review and Deskplan attendance.
+DevTrack is a Vercel-friendly Next.js platform for programming teachers and students. It combines teacher-assigned projects, GitHub activity, a per-project development diary, formative assessment, final assessment, teacher feedback, private AI-assisted code review, Deskplan attendance and live school timetables.
 
 ## Core teaching workflow
 
@@ -101,6 +101,9 @@ OPENAI_MODEL
 
 DESKPLAN_API_URL
 DESKPLAN_API_KEY
+
+TIMETABLE_API_URL
+TIMETABLE_TEACHER_NAME
 ```
 
 ## GitHub App

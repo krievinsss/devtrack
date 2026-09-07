@@ -18,6 +18,7 @@ import './teacher-review.css';
 import './assignment-hub.css';
 import './notifications.css';
 import './teacher-hub.css';
+import './timetable.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

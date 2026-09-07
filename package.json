@@ -1,15 +1,23 @@
 {
   "name": "devtrack",
   "version": "1.0.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:check": "node scripts/db-check.mjs",
+    "test:access": "node --test db/access.test.js"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@vercel/blob": "^2.6.1",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
     "jose": "^6.1.0",
     "lucide-react": "^0.468.0",
     "next": "16.3.0",
@@ -17,9 +25,11 @@
     "prism-react-renderer": "^2.4.1",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "ws": "^8.21.3",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.17.0",
     "eslint-config-next": "16.3.0"
   }

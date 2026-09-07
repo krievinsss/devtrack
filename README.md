@@ -51,9 +51,9 @@ The result is never exposed to students. It is an internal teacher aid and never
 - Next.js 16 + React 19
 - JavaScript
 - Vercel Serverless Route Handlers
-- JSON service/data layer
-- local JSON storage in development
-- private Vercel Blob JSON persistence in production
+- JSON service/data layer during the safe migration period
+- local JSON storage in development and private Vercel Blob persistence in production
+- Neon PostgreSQL + Drizzle foundation for schools, memberships and access control
 - GitHub App + REST API + signed push webhooks
 - OpenAI Responses API
 - Deskplan API adapter
@@ -78,7 +78,34 @@ Vercel does not provide durable writable local filesystem storage. `lib/storage.
 - local development: `/data/*.json`
 - production with `BLOB_READ_WRITE_TOKEN`: private Vercel Blob JSON documents
 
-The service layer keeps business logic independent of the storage backend so PostgreSQL / Neon / Supabase can replace the JSON adapter later.
+The existing service layer remains on JSON/Vercel Blob until its data has been imported and verified. The Neon schema is introduced alongside it so a deploy cannot accidentally replace or empty current production data.
+
+## Neon database foundation
+
+The first PostgreSQL migration contains the multi-school and access-control foundation:
+
+- users with a platform-level `super_admin` role
+- schools and school memberships (`school_admin`, `teacher`, `student`)
+- groups and membership relations
+- a module catalog with school-wide and per-membership visibility overrides
+- role permissions and per-membership allow/deny overrides
+- audit logs for future administrative actions
+
+DevTrack uses the pooled connection for short serverless runtime queries and the unpooled connection for transactional migrations. The Vercel/Neon integration variable names shown below are supported directly; no secret value belongs in git.
+
+```text
+DEVTRACK_DATABASE_URL
+DEVTRACK_DATABASE_URL_UNPOOLED
+```
+
+For local maintenance, provide those values privately in `.env.local`, then run:
+
+```bash
+npm run db:check
+npm run db:migrate
+```
+
+`db:migrate` applies committed migrations and seeds the module/permission catalog. It is intentionally not part of `npm run build`: production schema changes should be an explicit operation. The Settings page has a credential-safe connection check that reports only connection state, schema readiness and latency.
 
 ## Environment variables
 
@@ -88,6 +115,9 @@ DEVTRACK_TEACHER_EMAIL
 DEVTRACK_TEACHER_PASSWORD
 NEXT_PUBLIC_APP_URL
 BLOB_READ_WRITE_TOKEN
+
+DEVTRACK_DATABASE_URL
+DEVTRACK_DATABASE_URL_UNPOOLED
 
 GITHUB_APP_ID
 GITHUB_APP_SLUG

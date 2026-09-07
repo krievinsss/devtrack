@@ -15,7 +15,10 @@ export async function POST(request){
     const canonicalTeacherEmail=teacherLoginEmail();
     const users=await getUsersWithCredentials();
     let user=users.find(u=>u.email.toLowerCase()===email);
-    if(!user&&email===canonicalTeacherEmail)user=users.find(u=>u.role==='teacher');
+    if(!user&&email===canonicalTeacherEmail){
+      const platformOwners=users.filter(u=>u.platformRole==='super_admin'),legacyAdmins=users.filter(u=>u.role==='admin'),legacyTeachers=users.filter(u=>u.role==='teacher');
+      user=platformOwners.length===1?platformOwners[0]:platformOwners.length===0&&legacyAdmins.length===1?legacyAdmins[0]:platformOwners.length===0&&legacyAdmins.length===0&&legacyTeachers.length===1?legacyTeachers[0]:null;
+    }
     if(!user)return fail('Nepareizs e-pasts vai parole',401);
     if(user.active===false)return fail('Šis konts nav aktīvs',403);
     if(process.env.NODE_ENV==='production'&&user.role==='student'&&user.email.toLowerCase().endsWith('@devtrack.local'))return fail('Nepareizs e-pasts vai parole',401);
@@ -27,8 +30,8 @@ export async function POST(request){
 
     if(!valid)return fail('Nepareizs e-pasts vai parole',401);
 
-    if(['teacher','admin'].includes(user.role)&&(user.email.toLowerCase()!==canonicalTeacherEmail||usedBootstrapPassword)){
-      user=await patchUser(user.id,{email:canonicalTeacherEmail,...(usedBootstrapPassword?{mustChangePassword:true}:{}),updatedAt:new Date().toISOString()},{actorUserId:user.id});
+    if(['teacher','admin'].includes(user.role)&&usedBootstrapPassword){
+      user=await patchUser(user.id,{email:canonicalTeacherEmail,mustChangePassword:true,updatedAt:new Date().toISOString()},{actorUserId:user.id});
       after(()=>mirrorCoreDirectoryToBlob());
     }
 

@@ -110,6 +110,8 @@ The owner-only **Initialize & import** action in Settings performs the explicit 
 
 `DEVTRACK_CORE_STORAGE` is optional: `auto` (default) activates Neon only after initialization, `blob` is an emergency rollback switch, and `neon` requires the database to be ready and fails closed when it is unavailable.
 
+After Neon is live, the **Teachers & Access** workspace is available to authorized school administrators. A superadmin can create and suspend staff accounts, assign teachers to groups, apply classroom/programming module presets, and fine-tune every action permission. Changes are transactional, take effect on the next request, and are recorded in the audit log. The platform owner is protected from role changes, suspension and password resets in this panel to prevent accidental lockout.
+
 ## Environment variables
 
 ```text

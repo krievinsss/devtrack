@@ -19,6 +19,7 @@ import './assignment-hub.css';
 import './notifications.css';
 import './teacher-hub.css';
 import './timetable.css';
+import './access-manager.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

@@ -42,6 +42,8 @@ export async function POST(req){
     }
     if(body.action==='deleteGroup'){
       const groupId=z.string().parse(body.groupId);if(!groups.some(group=>group.id===groupId))return fail('Group not found',404);
+      const linkedAssignments=(await readJson('assignments',[])).filter(assignment=>assignment.groupId===groupId);
+      if(linkedAssignments.length)return fail(`This group still has ${linkedAssignments.length} linked project${linkedAssignments.length===1?'':'s'}. Remove or move those projects before deleting the group.`,409);
       const deleted=await deleteCoreGroup(groupId,{actorUserId:auth.user.id});if(!deleted)return fail('Group not found',404);
       scheduleMirror();return ok({deleted:true,groupId});
     }

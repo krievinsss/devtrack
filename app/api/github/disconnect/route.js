@@ -1,9 +1,11 @@
 import { requireApiUser,fail,ok } from '@/lib/http';
 import { updateJson } from '@/lib/storage';
 import { patchUser } from '@/services/users';
+import { after } from 'next/server';
+import { mirrorCoreDirectoryToBlob } from '@/services/coreDirectory';
 
 export async function POST(){
-  const auth=await requireApiUser(['student']);
+  const auth=await requireApiUser(['student'],{permission:'github.connect_own'});
   if(auth.error)return auth.error;
 
   try{
@@ -16,10 +18,11 @@ export async function POST(){
 
     const ids=new Set(projectIds);
     await Promise.all([
-      patchUser(auth.user.id,{githubInstallationId:null,githubConnectedAt:null,githubUsername:null,updatedAt:new Date().toISOString()}),
+      patchUser(auth.user.id,{githubInstallationId:null,githubConnectedAt:null,githubUsername:null,updatedAt:new Date().toISOString()},{actorUserId:auth.user.id}),
       updateJson('commits',[],commits=>commits.filter(commit=>!ids.has(commit.repositoryId)&&!ids.has(commit.projectId)))
     ]);
 
+    after(()=>mirrorCoreDirectoryToBlob());
     return ok({disconnected:true,projectsUpdated:projectIds.length});
   }catch(error){
     console.error('GitHub disconnect failed',{studentId:auth.user.id,error});

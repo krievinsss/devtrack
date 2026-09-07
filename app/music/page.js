@@ -3,6 +3,6 @@ import ClassroomMusic from '@/components/ClassroomMusic';
 import { requirePageUser } from '@/lib/page';
 
 export default async function MusicPage(){
-  const user = await requirePageUser(['student','teacher','admin']);
+  const user = await requirePageUser(['student','teacher','admin'],'music');
   return <AppShell user={user}><ClassroomMusic user={user}/></AppShell>;
 }

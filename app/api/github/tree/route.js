@@ -4,7 +4,7 @@ import { getProject } from '@/services/projects';
 import { canAccessStudent } from '@/lib/auth';
 
 export async function GET(req){
-  const auth=await requireApiUser();
+  const auth=await requireApiUser([],{module:'github'});
   if(auth.error)return auth.error;
   try{
     const u=new URL(req.url);
@@ -12,7 +12,7 @@ export async function GET(req){
     const path=u.searchParams.get('path')||'';
     if(!projectId)return fail('projectId required');
     const project=await getProject(projectId);
-    if(!project||!canAccessStudent(auth.user,project.studentId))return fail('Forbidden',403);
+    if(!project||!await canAccessStudent(auth.user,project.studentId))return fail('Forbidden',403);
     return ok({tree:await repoTree(projectId,path),path});
   }catch(e){
     console.error('GitHub tree API failed',e);

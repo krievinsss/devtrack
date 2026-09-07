@@ -6,6 +6,7 @@ import { evaluateGamificationProgress } from '@/services/gamificationProgress';
 import { notifyStudent } from '@/services/notifications';
 
 export async function getSummativeEvents(assignmentId){return (await readJson('summativeAssessments',[])).filter(x=>x.assignmentId===assignmentId).sort((a,b)=>new Date(a.date)-new Date(b.date))}
+export async function getSummativeEvent(id){return(await readJson('summativeAssessments',[])).find(item=>item.id===id)||null}
 
 export async function createSummative(input,user){
   if(!(await readJson('assignments',[])).some(a=>a.id===input.assignmentId))throw new Error('Project not found');

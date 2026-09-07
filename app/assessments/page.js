@@ -5,13 +5,19 @@ import { requirePageUser } from '@/lib/page';
 import { readJson } from '@/lib/storage';
 import { getProjects } from '@/services/projects';
 import { getUsers } from '@/services/users';
+import { getGroups } from '@/services/groups';
 
 export default async function Assessments(){
-  const user=await requirePageUser();
-  let projects=await getProjects();
-  if(user.role==='student')projects=projects.filter(p=>p.studentId===user.id);
-  const ids=new Set(projects.map(p=>p.id));
-  const [assessments,users,groups,assignments,formative,summative]=await Promise.all([readJson('assessments',[]),getUsers(),readJson('groups',[]),readJson('assignments',[]),readJson('formativeAssessments',[]),readJson('summativeAssessments',[])]);
+  const user=await requirePageUser([],'grades');
+  let [projects,users,groups,assignments,formative,summative]=await Promise.all([getProjects(),getUsers(),getGroups(),readJson('assignments',[]),readJson('formativeAssessments',[]),readJson('summativeAssessments',[])]);
+  if(user.role==='student')projects=projects.filter(project=>project.studentId===user.id);
+  if(user.role==='teacher'){
+    const visibleGroupIds=new Set(user.groupIds||[]),visibleStudentIds=new Set(users.filter(student=>(student.groupIds||[]).some(groupId=>visibleGroupIds.has(groupId))).map(student=>student.id));
+    groups=groups.filter(group=>visibleGroupIds.has(group.id));assignments=assignments.filter(assignment=>visibleGroupIds.has(assignment.groupId));
+    const assignmentIds=new Set(assignments.map(assignment=>assignment.id));projects=projects.filter(project=>assignmentIds.has(project.assignmentId)&&visibleStudentIds.has(project.studentId));users=users.filter(item=>item.role!=='student'||visibleStudentIds.has(item.id));
+    formative=formative.filter(event=>assignmentIds.has(event.assignmentId));summative=summative.filter(event=>assignmentIds.has(event.assignmentId));
+  }
+  const ids=new Set(projects.map(project=>project.id)),assessments=await readJson('assessments',[]);
   const rows=assessments.filter(a=>ids.has(a.projectId));
   if(user.role!=='student'){
     const [commits,aiReviews]=await Promise.all([readJson('commits',[]),readJson('aiReviews',[])]);

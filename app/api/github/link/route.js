@@ -7,7 +7,7 @@ import { updateJson } from '@/lib/storage';
 const schema=z.object({projectId:z.string(),repoId:z.coerce.number()});
 
 export async function POST(req){
-  const auth=await requireApiUser();
+  const auth=await requireApiUser(['student'],{permission:'github.connect_own'});
   if(auth.error)return auth.error;
   if(auth.user.role!=='student')return fail('Only students can link repositories',403);
 

@@ -51,9 +51,8 @@ The result is never exposed to students. It is an internal teacher aid and never
 - Next.js 16 + React 19
 - JavaScript
 - Vercel Serverless Route Handlers
-- JSON service/data layer during the safe migration period
-- local JSON storage in development and private Vercel Blob persistence in production
-- Neon PostgreSQL + Drizzle foundation for schools, memberships and access control
+- Neon PostgreSQL + Drizzle for accounts, groups, memberships and access control
+- local JSON storage in development and private Vercel Blob persistence for the remaining feature data
 - GitHub App + REST API + signed push webhooks
 - OpenAI Responses API
 - Deskplan API adapter
@@ -73,12 +72,12 @@ password is hashed and takes precedence over the bootstrap environment value.
 
 ## Production storage
 
-Vercel does not provide durable writable local filesystem storage. `lib/storage.js` therefore uses:
+Vercel does not provide durable writable local filesystem storage. The remaining JSON-backed features use:
 
 - local development: `/data/*.json`
 - production with `BLOB_READ_WRITE_TOKEN`: private Vercel Blob JSON documents
 
-The existing service layer remains on JSON/Vercel Blob until its data has been imported and verified. The Neon schema is introduced alongside it so a deploy cannot accidentally replace or empty current production data.
+Accounts and groups switch automatically to Neon only after the school and imported memberships exist. Before initialization they continue using JSON/Blob. Once Neon is live, its transactional rows are authoritative and a background snapshot keeps the legacy Blob documents available as a recovery copy.
 
 ## Neon database foundation
 
@@ -91,7 +90,7 @@ The first PostgreSQL migration contains the multi-school and access-control foun
 - role permissions and per-membership allow/deny overrides
 - audit logs for future administrative actions
 
-DevTrack uses the pooled connection for short serverless runtime queries and the unpooled connection for transactional migrations. The Vercel/Neon integration variable names shown below are supported directly; no secret value belongs in git.
+DevTrack uses the pooled connection for short serverless reads and the unpooled connection for transactional migrations and account/group writes. The Vercel/Neon integration variable names shown below are supported directly; no secret value belongs in git.
 
 ```text
 DEVTRACK_DATABASE_URL
@@ -107,7 +106,9 @@ npm run db:migrate
 
 `db:migrate` applies committed migrations and seeds the module/permission catalog. It is intentionally not part of `npm run build`: production schema changes should be an explicit operation. The Settings page has a credential-safe connection check that reports only connection state, schema readiness and latency.
 
-The owner-only **Initialize & import** action in Settings performs the explicit production operation without exposing Vercel credentials. It serializes concurrent runs with a PostgreSQL advisory lock, applies pending migrations transactionally, and then copies the current Blob-backed users and groups into Neon. Existing IDs, password hashes and integration profile fields are preserved. The import is idempotent, never deletes Blob data and does not switch the application storage driver.
+The owner-only **Initialize & import** action in Settings performs the explicit production operation without exposing Vercel credentials. It serializes concurrent runs with a PostgreSQL advisory lock, applies pending migrations transactionally, and copies the current Blob-backed users and groups into Neon. Existing IDs, password hashes and integration profile fields are preserved. The import is idempotent and never deletes Blob data. After a successful import, Neon automatically becomes the live account/group source; Blob snapshots continue in the background and do not delay form responses.
+
+`DEVTRACK_CORE_STORAGE` is optional: `auto` (default) activates Neon only after initialization, `blob` is an emergency rollback switch, and `neon` requires the database to be ready and fails closed when it is unavailable.
 
 ## Environment variables
 
@@ -120,6 +121,7 @@ BLOB_READ_WRITE_TOKEN
 
 DEVTRACK_DATABASE_URL
 DEVTRACK_DATABASE_URL_UNPOOLED
+DEVTRACK_CORE_STORAGE
 DEVTRACK_SCHOOL_ID
 DEVTRACK_SCHOOL_NAME
 DEVTRACK_SCHOOL_SLUG

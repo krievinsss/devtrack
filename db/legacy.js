@@ -3,8 +3,8 @@ import { MODULE_CATALOG,STUDENT_MODULE_PRESETS,TEACHER_MODULE_PRESETS } from './
 import { auditLogs,groupMemberships,groups,membershipModuleAccess,schoolMemberships,schoolModuleAccess,schools,users } from './schema.js';
 import { seedAccessCatalog } from './seed.js';
 
-const USER_CORE_KEYS=new Set(['id','email','firstName','lastName','passwordHash','platformRole','role','active','mustChangePassword','groupIds','createdAt','updatedAt']);
-const GROUP_CORE_KEYS=new Set(['id','name','academicYear','active','studentIds','teacherIds','createdAt','updatedAt']);
+const USER_CORE_KEYS=new Set(['id','email','firstName','lastName','passwordHash','platformRole','role','schoolRole','active','mustChangePassword','groupIds','membershipId','membershipStatus','schoolId','moduleKeys','permissionKeys','hasPassword','createdAt','updatedAt']);
+const GROUP_CORE_KEYS=new Set(['id','schoolId','name','academicYear','active','studentIds','teacherIds','createdAt','updatedAt']);
 
 export class LegacyImportError extends Error{constructor(message){super(message);this.name='LegacyImportError'}}
 

@@ -4,7 +4,7 @@ import { requirePageUser } from '@/lib/page';
 import { getStackDevQuestions } from '@/services/stackdev';
 
 export default async function StackDevPage(){
-  const user=await requirePageUser(['student','teacher','admin']);
+  const user=await requirePageUser(['student','teacher','admin'],'stackdev');
   const questions=await getStackDevQuestions();
   return <AppShell user={user}><StackDevBoard user={user} initialQuestions={questions}/></AppShell>;
 }

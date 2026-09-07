@@ -13,12 +13,12 @@ const schema=z.discriminatedUnion('action',[
 ]);
 
 export async function GET(){
-  const auth=await requireApiUser(['student','teacher','admin']);if(auth.error)return auth.error;
+  const auth=await requireApiUser(['student','teacher','admin'],{module:'stackdev'});if(auth.error)return auth.error;
   try{return ok({questions:await getStackDevQuestions()})}catch(error){return fail(error.message||'Could not load StackDev',500)}
 }
 
 export async function POST(request){
-  const auth=await requireApiUser(['student','teacher','admin']);if(auth.error)return auth.error;
+  const auth=await requireApiUser(['student','teacher','admin'],{module:'stackdev'});if(auth.error)return auth.error;
   try{
     const body=schema.parse(await request.json());let result;
     if(body.action==='create_question')result=await createStackDevQuestion(auth.user,body);

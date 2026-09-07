@@ -16,10 +16,10 @@ import { getFormativeEvents } from '@/services/formative';
 import { getSummativeEvents } from '@/services/summative';
 
 export default async function Project({params}){
-  const user=await requirePageUser();
+  const user=await requirePageUser([],'projects');
   const {id}=await params;
   let project=await getProject(id);
-  if(!project||!canAccessStudent(user,project.studentId))notFound();
+  if(!project||!await canAccessStudent(user,project.studentId))notFound();
   const assignment=project.assignmentId?await getAssignment(project.assignmentId):null;
   if(user.role==='student'&&assignment&&!assignmentIsActive(assignment))notFound();
   const student=await getUser(project.studentId);

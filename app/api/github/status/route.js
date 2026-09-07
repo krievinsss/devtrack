@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(req) {
-  const auth = await requireApiUser();
+  const auth = await requireApiUser([],{module:'github'});
   if (auth.error) return auth.error;
 
   const url = new URL(req.url);
@@ -14,7 +14,7 @@ export async function GET(req) {
   if (!projectId) return fail('projectId is required', 400);
 
   const project = await getProject(projectId);
-  if (!project || !canAccessStudent(auth.user, project.studentId)) return fail('Project not found', 404);
+  if (!project || !await canAccessStudent(auth.user, project.studentId)) return fail('Project not found', 404);
 
   return ok({
     connected: Boolean(project.githubInstallationId),

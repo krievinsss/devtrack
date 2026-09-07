@@ -5,15 +5,16 @@ import TeacherProjectsTable from '@/components/TeacherProjectsTable';
 import { PageHeader } from '@/components/UI';
 import { requirePageUser } from '@/lib/page';
 import { getProjects } from '@/services/projects';
-import { getUsers } from '@/services/users';
 import { getAssignments,assignmentIsActive } from '@/services/assignments';
-import { readJson } from '@/lib/storage';
+import { getGroups } from '@/services/groups';
 
 export default async function Projects(){
-  const user=await requirePageUser();
-  const [users,assignments,groups,allProjects]=await Promise.all([getUsers(),getAssignments(),readJson('groups',[]),getProjects()]);
+  const user=await requirePageUser([],'projects');
+  const [allAssignments,allGroups,projects]=await Promise.all([getAssignments(),getGroups(),getProjects()]);
 
   if(user.role!=='student'){
+    const visibleGroupIds=new Set(user.role==='admin'?allGroups.map(group=>group.id):user.groupIds||[]);
+    const groups=allGroups.filter(group=>visibleGroupIds.has(group.id)),assignments=allAssignments.filter(assignment=>visibleGroupIds.has(assignment.groupId)),assignmentIds=new Set(assignments.map(assignment=>assignment.id)),allProjects=projects.filter(project=>assignmentIds.has(project.assignmentId));
     return <AppShell user={user}>
       <PageHeader eyebrow="Teaching workspace" title="Projects" description="Review every assignment, group and student repository from one overview."/>
       <AssessmentProjectManager initialAssignments={assignments} groups={groups} projects={allProjects}/>
@@ -24,8 +25,8 @@ export default async function Projects(){
     </AppShell>;
   }
 
-  const active=new Map(assignments.filter(assignmentIsActive).map(a=>[a.id,a]));
-  const initialItems=allProjects.filter(p=>p.studentId===user.id&&active.has(p.assignmentId)).map(project=>({project,assignment:active.get(project.assignmentId)}));
+  const active=new Map(allAssignments.filter(assignmentIsActive).map(a=>[a.id,a]));
+  const initialItems=projects.filter(p=>p.studentId===user.id&&active.has(p.assignmentId)).map(project=>({project,assignment:active.get(project.assignmentId)}));
   return <AppShell user={user}>
     <PageHeader eyebrow="Repository workspace" title="My projects" description="Your active assigned work, repository, diary and teacher assessment."/>
     <StudentProjectsList initialItems={initialItems}/>

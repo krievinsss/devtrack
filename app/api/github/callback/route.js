@@ -3,6 +3,8 @@ import { patchProject, getProject } from '@/services/projects';
 import { patchUser } from '@/services/users';
 import { listInstallationRepos } from '@/services/github';
 import { readGitHubState } from '@/lib/githubState';
+import { after } from 'next/server';
+import { mirrorCoreDirectoryToBlob } from '@/services/coreDirectory';
 
 function redirect(req, path) {
   return Response.redirect(new URL(path, req.url));
@@ -16,6 +18,7 @@ export async function GET(req) {
   try {
     const user = await currentUser();
     if (!user) return redirect(req, '/login');
+    if (!user.moduleKeys?.includes('github')) return redirect(req, '/dashboard');
     if (user.role !== 'student') return redirect(req, '/projects?github=student_only');
 
     const url = new URL(req.url);
@@ -39,7 +42,8 @@ export async function GET(req) {
     await patchUser(user.id, {
       githubInstallationId: id,
       githubConnectedAt: new Date().toISOString(),
-    });
+    },{actorUserId:user.id});
+    after(()=>mirrorCoreDirectoryToBlob());
     await patchProject(projectId, { githubInstallationId: id });
 
     try {

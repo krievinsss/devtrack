@@ -5,13 +5,13 @@ import { getUsers } from '@/services/users';
 import { getProjects } from '@/services/projects';
 import { getGamificationProfiles,SHOP_ITEMS,ACHIEVEMENTS,levelForXp } from '@/services/gamification';
 import { EXTRA_AVATARS } from '@/services/avatarExtras';
-import { readJson } from '@/lib/storage';
+import { getGroups } from '@/services/groups';
 
 const CATALOG=[...SHOP_ITEMS,...EXTRA_AVATARS];
 function cosmetic(id){return CATALOG.find(x=>x.id===id)||null}
 export default async function ClassmatesPage(){
-  const user=await requirePageUser(['student']);
-  const [users,groups,profiles,projects]=await Promise.all([getUsers(),readJson('groups',[]),getGamificationProfiles(),getProjects()]);
+  const user=await requirePageUser(['student'],'groups');
+  const [users,groups,profiles,projects]=await Promise.all([getUsers(),getGroups(),getGamificationProfiles(),getProjects()]);
   const groupIds=new Set(user.groupIds||[]);
   const students=users.filter(u=>u.role==='student'&&(u.groupIds||[]).some(id=>groupIds.has(id)));
   const groupNames=groups.filter(g=>groupIds.has(g.id)).map(g=>g.name);

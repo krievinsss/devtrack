@@ -6,7 +6,7 @@ const bodySchema=z.object({name:z.string().min(1).max(180),type:z.string().min(1
 const rubricSchema={type:'object',additionalProperties:false,properties:{criteria:{type:'array',minItems:1,maxItems:40,items:{type:'object',additionalProperties:false,properties:{name:{type:'string'},max:{type:'number'},description:{type:'string'}},required:['name','max','description']}}},required:['criteria']};
 
 export async function POST(req){
-  const auth=await requireApiUser(['teacher','admin']);if(auth.error)return auth.error;
+  const auth=await requireApiUser(['teacher','admin'],{permission:'grades.manage'});if(auth.error)return auth.error;
   try{
     const body=bodySchema.parse(await req.json());
     const isText=body.type==='text/plain'||body.name.toLowerCase().endsWith('.txt');

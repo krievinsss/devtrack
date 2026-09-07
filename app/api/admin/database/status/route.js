@@ -2,7 +2,7 @@ import { databaseStatus } from '@/db/client';
 import { fail,ok,requireApiUser } from '@/lib/http';
 
 export async function GET(){
-  const auth=await requireApiUser(['teacher','admin']);
+  const auth=await requireApiUser(['teacher','admin'],{permission:'administration.manage_school'});
   if(auth.error)return auth.error;
 
   try{

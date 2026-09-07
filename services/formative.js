@@ -6,6 +6,7 @@ import { evaluateGamificationProgress } from '@/services/gamificationProgress';
 import { notifyStudent } from '@/services/notifications';
 
 export async function getFormativeEvents(assignmentId){return (await readJson('formativeAssessments',[])).filter(x=>x.assignmentId===assignmentId).sort((a,b)=>new Date(b.date)-new Date(a.date))}
+export async function getFormativeEvent(id){return(await readJson('formativeAssessments',[])).find(item=>item.id===id)||null}
 
 export async function createFormative(input,user){
   if(!(await readJson('assignments',[])).some(a=>a.id===input.assignmentId))throw new Error('Project not found');

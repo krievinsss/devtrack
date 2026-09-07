@@ -4,7 +4,7 @@ import { Database,Loader2,RefreshCw } from 'lucide-react';
 import { Badge } from './UI';
 
 function display(state,configured){
-  if(state?.connected&&state.schemaReady&&state.core?.importedAt)return {tone:'green',label:`Ready · ${state.latencyMs} ms`,detail:`Core imported: ${state.core.users} users, ${state.core.groups} groups and ${state.core.memberships} memberships.`};
+  if(state?.connected&&state.schemaReady&&state.core?.importedAt)return {tone:'green',label:`Live · ${state.latencyMs} ms`,detail:`Neon is serving ${state.core.users} users, ${state.core.groups} groups and ${state.core.memberships} memberships. Blob remains a background backup.`};
   if(state?.connected&&state.schemaReady)return {tone:'blue',label:`Schema ready · ${state.latencyMs} ms`,detail:'Connection works. Existing users and groups are not imported yet.'};
   if(state?.connected)return {tone:'amber',label:'Migration needed',detail:'Connection works, but the DevTrack database schema has not been applied yet.'};
   if(state&&!state.connected)return {tone:'red',label:'Connection failed',detail:'Check the Vercel environment scope and database connection string.'};
@@ -31,13 +31,13 @@ export default function DatabaseStatus({configured}){
   }
 
   async function initialize(){
-    if(!confirm('This applies pending Neon migrations and copies the current Blob users and groups. It does not delete Blob data or switch live storage. Continue?'))return;
+    if(!confirm('This applies pending Neon migrations and imports the current users and groups. Neon then becomes the live source for accounts and groups; Blob is kept as a background backup. Continue?'))return;
     setInitializing(true);setError('');setMessage('');
     try{
       const response=await fetch('/api/admin/database/bootstrap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmation:'IMPORT_LEGACY_CORE'})}),data=await response.json();
       if(!response.ok||!data.ok)throw new Error(data.error||'Database initialization failed');
       setState(data.database);
-      setMessage(`Imported ${data.imported.users} users, ${data.imported.groups} groups and ${data.imported.groupRelations} group relations.`);
+      setMessage(`Neon is live with ${data.imported.users} users, ${data.imported.groups} groups and ${data.imported.groupRelations} group relations.`);
     }catch(error){
       setError(error.message||'Database initialization failed');
     }finally{

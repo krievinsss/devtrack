@@ -1,6 +1,8 @@
 import 'server-only';
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { Client,neon,neonConfig } from '@neondatabase/serverless';
+import { drizzle as drizzleHttp } from 'drizzle-orm/neon-http';
+import { drizzle as drizzleServerless } from 'drizzle-orm/neon-serverless';
+import ws from 'ws';
 import * as schema from './schema';
 
 let cachedDatabase=null;
@@ -18,8 +20,19 @@ export function databaseConfigured(){return Boolean(runtimeDatabaseUrl())}
 export function database(){
   const url=runtimeDatabaseUrl();
   if(!url)throw new Error('Neon Postgres is not configured');
-  if(!cachedDatabase)cachedDatabase=drizzle(neon(url),{schema});
+  if(!cachedDatabase)cachedDatabase=drizzleHttp(neon(url),{schema});
   return cachedDatabase;
+}
+
+export async function withTransactionDatabase(operation){
+  const url=migrationDatabaseUrl();if(!url)throw new Error('Neon Postgres is not configured');
+  neonConfig.webSocketConstructor=ws;
+  const client=new Client({connectionString:url,connectionTimeoutMillis:10000});
+  let connected=false;
+  try{
+    await client.connect();connected=true;
+    return await operation(drizzleServerless(client,{schema}));
+  }finally{if(connected)await client.end()}
 }
 
 export async function databaseStatus(){

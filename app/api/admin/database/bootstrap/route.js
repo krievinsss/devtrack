@@ -4,8 +4,8 @@ import { databaseStatus } from '@/db/client';
 import { LegacyImportError } from '@/db/legacy';
 import { teacherLoginEmail } from '@/lib/auth';
 import { fail,ok,requireApiUser } from '@/lib/http';
-import { readJson } from '@/lib/storage';
-import { getUsers } from '@/services/users';
+import { getUsersWithCredentials } from '@/services/users';
+import { getGroups } from '@/services/groups';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -14,7 +14,7 @@ export const maxDuration=60;
 const bodySchema=z.object({confirmation:z.literal('IMPORT_LEGACY_CORE')});
 
 export async function POST(req){
-  const auth=await requireApiUser(['teacher','admin']);
+  const auth=await requireApiUser(['teacher','admin'],{permission:'administration.manage_school'});
   if(auth.error)return auth.error;
   const ownerEmail=teacherLoginEmail();
   if(String(auth.user.email||'').trim().toLowerCase()!==ownerEmail&&auth.user.role!=='admin')return fail('Only the DevTrack owner can initialize the database',403);
@@ -22,7 +22,7 @@ export async function POST(req){
 
   try{
     bodySchema.parse(await req.json());
-    const [legacyUsers,legacyGroups]=await Promise.all([getUsers(),readJson('groups',[])]);
+    const [legacyUsers,legacyGroups]=await Promise.all([getUsersWithCredentials(),getGroups()]);
     const imported=await bootstrapLegacyDatabase({
       legacyUsers,legacyGroups,ownerEmail,actorUserId:auth.user.id,
       school:{

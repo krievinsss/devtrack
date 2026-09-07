@@ -3,7 +3,7 @@ import { getProject } from '@/services/projects';
 import { createGitHubState } from '@/lib/githubState';
 
 export async function GET(req){
-  const auth=await requireApiUser();
+  const auth=await requireApiUser(['student'],{permission:'github.connect_own'});
   if(auth.error)return auth.error;
   if(auth.user.role!=='student')return fail('Only students can connect GitHub to their projects',403);
 

@@ -54,7 +54,7 @@ async function reconcileQueueWithSpotify(owner,queue){
 }
 
 export async function GET(){
-  const auth=await requireApiUser(['student','teacher','admin']);
+  const auth=await requireApiUser(['student','teacher','admin'],{module:'music'});
   if(auth.error)return auth.error;
   try{
     const [settings,music,users]=await Promise.all([getMusicSettings(),getMusicSnapshot(),getUsers()]);
@@ -85,7 +85,7 @@ export async function GET(){
 }
 
 export async function POST(req){
-  const auth=await requireApiUser(['student','teacher','admin']);
+  const auth=await requireApiUser(['student','teacher','admin'],{module:'music'});
   if(auth.error)return auth.error;
   try{
     const body=actionSchema.parse(await req.json());

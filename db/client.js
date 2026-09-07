@@ -24,13 +24,19 @@ export function database(){
 
 export async function databaseStatus(){
   const url=runtimeDatabaseUrl();
-  if(!url)return {configured:false,connected:false,schemaReady:false,latencyMs:null};
+  if(!url)return {configured:false,connected:false,schemaReady:false,latencyMs:null,core:null};
   const started=Date.now();
   try{
     const client=neon(url),rows=await client.query("select to_regclass('public.schools') is not null as schema_ready",[],{fetchOptions:{signal:AbortSignal.timeout(5000)}});
-    return {configured:true,connected:true,schemaReady:Boolean(rows[0]?.schema_ready),latencyMs:Date.now()-started};
+    const schemaReady=Boolean(rows[0]?.schema_ready);
+    let core=null;
+    if(schemaReady){
+      const [counts]=await client.query("select (select count(*) from schools)::int as schools, (select count(*) from users)::int as users, (select count(*) from school_memberships)::int as memberships, (select count(*) from groups)::int as groups, (select max(created_at) from audit_logs where action = 'legacy.core_imported') as imported_at",[],{fetchOptions:{signal:AbortSignal.timeout(5000)}});
+      core={schools:Number(counts?.schools||0),users:Number(counts?.users||0),memberships:Number(counts?.memberships||0),groups:Number(counts?.groups||0),importedAt:counts?.imported_at?new Date(counts.imported_at).toISOString():null};
+    }
+    return {configured:true,connected:true,schemaReady,latencyMs:Date.now()-started,core};
   }catch{
-    return {configured:true,connected:false,schemaReady:false,latencyMs:Date.now()-started};
+    return {configured:true,connected:false,schemaReady:false,latencyMs:Date.now()-started,core:null};
   }
 }
 

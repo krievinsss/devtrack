@@ -107,6 +107,8 @@ npm run db:migrate
 
 `db:migrate` applies committed migrations and seeds the module/permission catalog. It is intentionally not part of `npm run build`: production schema changes should be an explicit operation. The Settings page has a credential-safe connection check that reports only connection state, schema readiness and latency.
 
+The owner-only **Initialize & import** action in Settings performs the explicit production operation without exposing Vercel credentials. It serializes concurrent runs with a PostgreSQL advisory lock, applies pending migrations transactionally, and then copies the current Blob-backed users and groups into Neon. Existing IDs, password hashes and integration profile fields are preserved. The import is idempotent, never deletes Blob data and does not switch the application storage driver.
+
 ## Environment variables
 
 ```text
@@ -118,6 +120,9 @@ BLOB_READ_WRITE_TOKEN
 
 DEVTRACK_DATABASE_URL
 DEVTRACK_DATABASE_URL_UNPOOLED
+DEVTRACK_SCHOOL_ID
+DEVTRACK_SCHOOL_NAME
+DEVTRACK_SCHOOL_SLUG
 
 GITHUB_APP_ID
 GITHUB_APP_SLUG

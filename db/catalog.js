@@ -40,3 +40,7 @@ export const TEACHER_MODULE_PRESETS={
   general:['timetable','attendance','classrooms','groups'],
   programming:['timetable','attendance','classrooms','groups','grades','projects','github','stackdev','music','achievements']
 };
+
+export const STUDENT_MODULE_PRESETS={
+  programming:['timetable','attendance','groups','grades','projects','github','stackdev','music','achievements']
+};

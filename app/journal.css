@@ -122,9 +122,19 @@
   min-height: 540px;
 }
 .journal-scroll table {
-  width: max-content;
+  table-layout: fixed;
+  min-width: 0;
   border-collapse: separate;
   border-spacing: 0;
+}
+.journal-number-width {
+  width: 20px;
+}
+.journal-student-width {
+  width: 96px;
+}
+.journal-entry-width {
+  width: 32px;
 }
 .journal-scroll th,
 .journal-scroll td {
@@ -146,17 +156,18 @@
   position: sticky !important;
   left: 0;
   z-index: 4 !important;
-  width: 25px;
-  min-width: 25px;
+  width: 20px;
+  min-width: 20px;
   color: var(--muted);
   font-size: 8px;
 }
 .journal-student-col {
   position: sticky !important;
-  left: 25px;
+  left: 20px;
   z-index: 4 !important;
-  width: 116px;
-  min-width: 116px;
+  width: 96px;
+  min-width: 96px;
+  max-width: 96px;
   text-align: left !important;
   box-shadow: 4px 0 7px rgba(2, 6, 23, 0.04);
 }
@@ -166,8 +177,9 @@
   text-transform: uppercase;
 }
 .journal-column-head {
-  width: 34px;
-  min-width: 34px;
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
   cursor: pointer;
 }
 .journal-column-head:hover {
@@ -227,10 +239,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 82px;
 }
 .journal-cell {
-  width: 34px;
-  min-width: 34px;
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
   cursor: pointer;
 }
 .journal-cell:hover {

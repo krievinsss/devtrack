@@ -1,15 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  BookOpen,
-  CalendarDays,
-  Plus,
-  Save,
-  Search,
-  Settings2,
-  X,
-} from "lucide-react";
+import { BookOpen, CalendarDays, Plus, Save, Settings2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { gradeFromPercent } from "@/lib/grading";
 import { ProjectEvidence } from "@/components/TeacherGradebook";
@@ -27,7 +19,6 @@ export default function TeacherJournal({
 }) {
   const [courseId, setCourseId] = useState(courses[0]?.id || ""),
     [semester, setSemester] = useState("all"),
-    [query, setQuery] = useState(""),
     [entries, setEntries] = useState(initialEntries),
     [assessments, setAssessments] = useState(initialAssessments),
     [editor, setEditor] = useState(null),
@@ -156,6 +147,51 @@ export default function TeacherJournal({
     }
   }
 
+  async function toggleAttendance(column, student, current) {
+    if (busy || !column.entryId) return;
+    const status = current?.status === "absent" ? "present" : "absent";
+    const previousEntries = entries;
+    const attendanceOverrides = {
+      ...(column.attendanceOverrides || {}),
+      [student.id]: status,
+    };
+    setEntries((items) =>
+      items.map((entry) =>
+        entry.id === column.entryId ? { ...entry, attendanceOverrides } : entry,
+      ),
+    );
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/journal", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "saveEntry",
+          id: column.entryId,
+          courseId: course.id,
+          date: isoDate(column.date),
+          type: "lesson",
+          timetablePeriod: column.period || null,
+          topic: column.manualTopic || "",
+          outcome: column.manualOutcome || "",
+          attendanceOverrides,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Could not update attendance");
+      setEntries((items) =>
+        items.map((entry) => (entry.id === body.entry.id ? body.entry : entry)),
+      );
+    } catch (cause) {
+      setEntries(previousEntries);
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!course)
     return (
       <section className="panel journal-empty">
@@ -230,17 +266,16 @@ export default function TeacherJournal({
               {model.assessmentCount} assessments
             </p>
           </div>
-          <label>
-            <Search size={14} />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search…"
-            />
-          </label>
         </header>
         <div className="journal-scroll">
-          <table>
+          <table style={{ width: `${20 + 96 + model.columns.length * 32}px` }}>
+            <colgroup>
+              <col className="journal-number-width" />
+              <col className="journal-student-width" />
+              {model.columns.map((column) => (
+                <col key={column.id} className="journal-entry-width" />
+              ))}
+            </colgroup>
             <thead>
               <tr>
                 <th className="journal-number">Nr.</th>
@@ -269,55 +304,53 @@ export default function TeacherJournal({
               </tr>
             </thead>
             <tbody>
-              {model.rows
-                .filter((row) =>
-                  row.name.toLowerCase().includes(query.toLowerCase()),
-                )
-                .map((row, index) => (
-                  <tr key={row.id}>
-                    <td className="journal-number">{index + 1}</td>
-                    <td className="journal-student-col">
-                      <button>
-                        <b>{row.name}</b>
-                      </button>
-                    </td>
-                    {model.columns.map((column) => {
-                      const cell = column.results.find(
-                        (result) => result.studentId === row.id,
-                      );
-                      return (
-                        <td
-                          key={column.id}
-                          className={`journal-cell ${column.kind}`}
-                          onClick={() =>
-                            setEditor(
-                              column.kind === "lesson"
-                                ? { mode: "attendance", column, student: row }
-                                : column.entryId
-                                  ? { mode: "entry", column }
-                                  : {
-                                      mode: "grade",
-                                      column,
-                                      student: row,
-                                      current: cell,
-                                    },
-                            )
-                          }
-                        >
-                          {column.kind === "lesson" ? (
-                            cell?.status === "absent" ? (
-                              <strong className="journal-absence">n</strong>
-                            ) : null
-                          ) : cell ? (
-                            <strong className="journal-grade">
-                              {cell.grade}
-                            </strong>
-                          ) : null}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+              {model.rows.map((row, index) => (
+                <tr key={row.id}>
+                  <td className="journal-number">{index + 1}</td>
+                  <td className="journal-student-col">
+                    <button>
+                      <b>{row.name}</b>
+                    </button>
+                  </td>
+                  {model.columns.map((column) => {
+                    const cell = column.results.find(
+                      (result) => result.studentId === row.id,
+                    );
+                    return (
+                      <td
+                        key={column.id}
+                        className={`journal-cell ${column.kind}`}
+                        onClick={() => {
+                          if (column.kind === "lesson")
+                            return toggleAttendance(column, row, cell);
+                          setEditor(
+                            column.entryId
+                              ? { mode: "entry", column }
+                              : {
+                                  mode: "grade",
+                                  column,
+                                  student: row,
+                                  current: cell,
+                                },
+                          );
+                        }}
+                      >
+                        {column.kind === "lesson" ? (
+                          cell?.status === "absent" ? (
+                            <strong className="journal-absence">n</strong>
+                          ) : null
+                        ) : cell ? (
+                          <strong className="journal-grade">
+                            {column.kind === "formative"
+                              ? `${assessmentPercent(cell)}%`
+                              : cell.grade}
+                          </strong>
+                        ) : null}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
             </tbody>
           </table>
           {!model.columns.length && (
@@ -354,27 +387,6 @@ export default function TeacherJournal({
           busy={busy}
           close={() => setEditor(null)}
           save={saveEntry}
-        />
-      )}
-      {editor?.mode === "attendance" && (
-        <AttendanceModal
-          value={editor}
-          busy={busy}
-          close={() => setEditor(null)}
-          save={(status) =>
-            saveEntry({
-              id: editor.column.entryId,
-              date: isoDate(editor.column.date),
-              type: "lesson",
-              timetablePeriod: editor.column.period || null,
-              topic: editor.column.manualTopic || "",
-              outcome: editor.column.manualOutcome || "",
-              attendanceOverrides: {
-                ...(editor.column.attendanceOverrides || {}),
-                [editor.student.id]: status,
-              },
-            })
-          }
         />
       )}
       {editor?.mode === "grade" && (
@@ -466,40 +478,6 @@ function EntryModal({ title, initial, busy, close, save }) {
           onClick={() => save(form)}
         >
           <Save size={14} /> {busy ? "Saving…" : "Save"}
-        </button>
-      </footer>
-    </Modal>
-  );
-}
-function AttendanceModal({ value, busy, close, save }) {
-  const [status, setStatus] = useState(
-    value.column.results.find((item) => item.studentId === value.student.id)
-      ?.status || "present",
-  );
-  return (
-    <Modal title={value.student.name} close={close}>
-      <div className="journal-detail-copy">
-        <span className="eyebrow">ATTENDANCE</span>
-        <h3>{value.column.title}</h3>
-        <p>{longDate(value.column.date)}</p>
-      </div>
-      <label>
-        <span>Status</span>
-        <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="present">Present (empty cell)</option>
-          <option value="absent">Absent (n)</option>
-        </select>
-      </label>
-      <footer>
-        <button className="btn secondary" onClick={close}>
-          Cancel
-        </button>
-        <button
-          className="btn primary"
-          disabled={busy}
-          onClick={() => save(status)}
-        >
-          Save
         </button>
       </footer>
     </Modal>
@@ -707,6 +685,21 @@ function compactDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function assessmentPercent(result) {
+  if (Number.isFinite(Number(result?.percent)))
+    return Math.round(Number(result.percent));
+  const scores = result?.scores || result?.criteria || [];
+  const total = scores.reduce(
+    (sum, item) => sum + Number(item.score ?? item.points ?? 0),
+    0,
+  );
+  const max = scores.reduce(
+    (sum, item) => sum + Number(item.max ?? item.maxPoints ?? 0),
+    0,
+  );
+  return max ? Math.round((total / max) * 100) : 0;
 }
 
 function buildJournal({

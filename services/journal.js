@@ -262,6 +262,10 @@ export async function saveJournalEntry(user, input) {
             topic: input.topic || "",
             outcome: input.outcome || "",
             type: input.type || rows[0].type,
+            timetablePeriod:
+              rows[0].source === "manual"
+                ? input.timetablePeriod || null
+                : rows[0].timetablePeriod,
             attendanceOverrides:
               input.attendanceOverrides || rows[0].attendanceOverrides,
             updatedAt: new Date(),
@@ -278,6 +282,7 @@ export async function saveJournalEntry(user, input) {
             sourceKey: `manual:${crypto.randomUUID()}`,
             type: input.type,
             date: input.date,
+            timetablePeriod: input.timetablePeriod || null,
             startsAt: start,
             endsAt: input.endsAt ? new Date(input.endsAt) : start,
             topic: input.topic || "",

@@ -221,8 +221,14 @@ export default function TeacherJournal({
       <section className="panel journal-sheet-card">
         <header>
           <div>
-            <h2>{groups.find((group) => group.id === course.groupId)?.name} · {course.subject}</h2>
-            <p>{model.rows.length} students · {model.lessonCount} lessons · {model.assessmentCount} assessments</p>
+            <h2>
+              {groups.find((group) => group.id === course.groupId)?.name} ·{" "}
+              {course.subject}
+            </h2>
+            <p>
+              {model.rows.length} students · {model.lessonCount} lessons ·{" "}
+              {model.assessmentCount} assessments
+            </p>
           </div>
           <label>
             <Search size={14} />
@@ -303,7 +309,9 @@ export default function TeacherJournal({
                               <strong className="journal-absence">n</strong>
                             ) : null
                           ) : cell ? (
-                            <strong className="journal-grade">{cell.grade}</strong>
+                            <strong className="journal-grade">
+                              {cell.grade}
+                            </strong>
                           ) : null}
                         </td>
                       );
@@ -330,6 +338,7 @@ export default function TeacherJournal({
           initial={{
             type: "lesson",
             date: localDate(),
+            timetablePeriod: null,
             topic: "",
             outcome: "",
           }}
@@ -357,6 +366,7 @@ export default function TeacherJournal({
               id: editor.column.entryId,
               date: isoDate(editor.column.date),
               type: "lesson",
+              timetablePeriod: editor.column.period || null,
               topic: editor.column.manualTopic || "",
               outcome: editor.column.manualOutcome || "",
               attendanceOverrides: {
@@ -386,6 +396,7 @@ function EntryModal({ title, initial, busy, close, save }) {
     id: initial.entryId || initial.id,
     type: initial.type === "assessment" ? "assessment" : "lesson",
     date: isoDate(initial.date),
+    timetablePeriod: initial.period ?? initial.timetablePeriod ?? "",
     topic: initial.manualTopic ?? initial.topic ?? "",
     outcome: initial.manualOutcome ?? initial.outcome ?? "",
     source: initial.source || "manual",
@@ -410,6 +421,26 @@ function EntryModal({ title, initial, busy, close, save }) {
           value={form.date}
           onChange={(e) => setForm({ ...form, date: e.target.value })}
         />
+      </label>
+      <label>
+        <span>Lesson period</span>
+        <select
+          disabled={form.source === "timetable"}
+          value={form.timetablePeriod}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              timetablePeriod: e.target.value ? Number(e.target.value) : "",
+            })
+          }
+        >
+          <option value="">Not specified</option>
+          {Array.from({ length: 12 }, (_, index) => index + 1).map((period) => (
+            <option key={period} value={period}>
+              {period}. lesson
+            </option>
+          ))}
+        </select>
       </label>
       <label>
         <span>Lesson topic</span>
@@ -527,59 +558,73 @@ function GradeModal({ value, projects, evidenceByProject, busy, close, save }) {
           <b>{gradeFromPercent(percent)}</b>
         </div>
       </div>
-      {scores.map((criterion, index) => (
-        <label className="journal-criterion" key={`${criterion.name}-${index}`}>
-          <span>
-            {criterion.name} · max {criterion.max}
-          </span>
-          <input
-            type="number"
-            min="0"
-            max={criterion.max}
-            value={criterion.score}
-            onChange={(e) =>
-              setScores((items) =>
-                items.map((item, i) =>
-                  i === index
-                    ? {
-                        ...item,
-                        score: Math.max(
-                          0,
-                          Math.min(item.max, Number(e.target.value) || 0),
-                        ),
-                      }
-                    : item,
-                ),
-              )
-            }
+      <section className="journal-modal-section">
+        <div className="journal-section-title">
+          <b>Criteria</b>
+          <span>{scores.length} criteria</span>
+        </div>
+        <div className="journal-criteria-list">
+          {scores.map((criterion, index) => (
+            <label
+              className="journal-criterion"
+              key={`${criterion.name}-${index}`}
+            >
+              <span>
+                {criterion.name}
+                <small>Maximum {criterion.max} points</small>
+              </span>
+              <input
+                type="number"
+                min="0"
+                max={criterion.max}
+                value={criterion.score}
+                onChange={(e) =>
+                  setScores((items) =>
+                    items.map((item, i) =>
+                      i === index
+                        ? {
+                            ...item,
+                            score: Math.max(
+                              0,
+                              Math.min(item.max, Number(e.target.value) || 0),
+                            ),
+                          }
+                        : item,
+                    ),
+                  )
+                }
+              />
+            </label>
+          ))}
+        </div>
+      </section>
+      <section className="journal-modal-section journal-feedback-grid">
+        {value.column.kind === "formative" && (
+          <>
+            <label>
+              <span>What went well</span>
+              <textarea
+                value={positive}
+                onChange={(e) => setPositive(e.target.value)}
+              />
+            </label>
+            <label>
+              <span>Needs improvement</span>
+              <textarea
+                value={improvement}
+                onChange={(e) => setImprovement(e.target.value)}
+              />
+            </label>
+          </>
+        )}
+        <label className="journal-feedback-full">
+          <span>Feedback</span>
+          <textarea
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
           />
         </label>
-      ))}
-      {value.column.kind === "formative" && (
-        <>
-          <label>
-            <span>What went well</span>
-            <textarea
-              value={positive}
-              onChange={(e) => setPositive(e.target.value)}
-            />
-          </label>
-          <label>
-            <span>Needs improvement</span>
-            <textarea
-              value={improvement}
-              onChange={(e) => setImprovement(e.target.value)}
-            />
-          </label>
-        </>
-      )}
-      <label>
-        <span>Feedback</span>
-        <textarea
-          value={feedback}
-          onChange={(e) => setFeedback(e.target.value)}
-        />
-      </label>
+      </section>
       {(current?.revisionHistory || []).length > 0 && (
         <label>
           <span>Correction type</span>

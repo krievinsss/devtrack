@@ -43,6 +43,7 @@ const entrySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startsAt: z.string().datetime().nullable().optional(),
   endsAt: z.string().datetime().nullable().optional(),
+  timetablePeriod: z.number().int().min(1).max(20).nullable().optional(),
   topic: z.string().trim().max(300).default(""),
   outcome: z.string().trim().max(2000).default(""),
   attendanceOverrides: z

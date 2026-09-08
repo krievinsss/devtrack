@@ -1,0 +1,124 @@
+import 'server-only';
+import { and,asc,desc,eq,sql } from 'drizzle-orm';
+import { database,withTransactionDatabase } from '@/db/client';
+import { defaultSchoolId } from '@/db/directory';
+import { attendanceRecords,attendanceSessions,auditLogs,classrooms,desks,groupMemberships,groups,schoolMemberships,users } from '@/db/schema';
+import { attendanceMinutesLate,attendanceStatus,attendanceSummary } from '@/lib/attendance';
+import { getClassroom,getDeskByQrToken } from './classrooms';
+
+export class AttendanceAccessError extends Error{constructor(message='You do not have access to this lesson'){super(message);this.name='AttendanceAccessError'}}
+export class AttendanceConflictError extends Error{constructor(message){super(message);this.name='AttendanceConflictError'}}
+export class AttendanceNotFoundError extends Error{constructor(message='Lesson session not found'){super(message);this.name='AttendanceNotFoundError'}}
+
+export async function getAttendanceDashboard(user,{sessionId=null,historyLimit=20}={}){
+  const db=database(),schoolId=schoolFor(user);
+  let sessionRows=await db.select().from(attendanceSessions).where(eq(attendanceSessions.schoolId,schoolId)).orderBy(desc(attendanceSessions.openedAt)).limit(Math.min(100,historyLimit));
+  if(!isSchoolWide(user))sessionRows=sessionRows.filter(session=>canAccessGroup(user,session.groupId));
+  let selected=sessionId?sessionRows.find(item=>item.id===sessionId):sessionRows.find(item=>item.status==='open')||sessionRows[0]||null;
+  if(sessionId&&!selected){const rows=await db.select().from(attendanceSessions).where(and(eq(attendanceSessions.id,sessionId),eq(attendanceSessions.schoolId,schoolId))).limit(1);selected=rows[0]||null;if(selected&&!isSchoolWide(user)&&!canAccessGroup(user,selected.groupId))throw new AttendanceAccessError()}
+  const active=sessionRows.filter(item=>item.status==='open');
+  return {active:await Promise.all(active.map(item=>hydrateSession(db,item,false))),selected:selected?await hydrateSession(db,selected,true):null,history:await Promise.all(sessionRows.filter(item=>item.status!=='open').map(item=>hydrateSession(db,item,false)))};
+}
+
+export async function getStudentAttendance(user,{limit=100}={}){
+  if(user.role!=='student'||!user.membershipId)throw new AttendanceAccessError();
+  const db=database();
+  const rows=await db.select({record:attendanceRecords,session:attendanceSessions,classroomName:classrooms.name,groupName:groups.name,deskCode:desks.code,deskLabel:desks.label})
+    .from(attendanceRecords).innerJoin(attendanceSessions,eq(attendanceSessions.id,attendanceRecords.sessionId)).innerJoin(classrooms,eq(classrooms.id,attendanceSessions.classroomId)).innerJoin(groups,eq(groups.id,attendanceSessions.groupId)).leftJoin(desks,eq(desks.id,attendanceRecords.deskId))
+    .where(and(eq(attendanceRecords.studentMembershipId,user.membershipId),eq(attendanceSessions.schoolId,schoolFor(user)))).orderBy(desc(attendanceSessions.startsAt)).limit(Math.min(250,limit));
+  const records=rows.map(row=>recordDto(row.record,row.session,{classroomName:row.classroomName,groupName:row.groupName,deskCode:row.deskCode,deskLabel:row.deskLabel}));
+  return {records,summary:attendanceSummary(records)};
+}
+
+export async function openAttendanceSession(user,input){
+  assertManage(user);if(!isSchoolWide(user)&&!canAccessGroup(user,input.groupId))throw new AttendanceAccessError('You are not assigned to this group');
+  const room=await getClassroom(user,input.classroomId);if(!room.active)throw new AttendanceConflictError('This classroom is archived');
+  const start=new Date(input.startsAt),end=new Date(input.endsAt);if(end<=start)throw new AttendanceConflictError('Lesson end must be after its start');
+  return withTransactionDatabase(db=>db.transaction(async tx=>{
+    const groupRows=await tx.select({id:groups.id}).from(groups).where(and(eq(groups.id,input.groupId),eq(groups.schoolId,schoolFor(user)),eq(groups.active,true))).limit(1);if(!groupRows.length)throw new AttendanceNotFoundError('Group not found');
+    const [created]=await tx.insert(attendanceSessions).values({schoolId:schoolFor(user),classroomId:input.classroomId,groupId:input.groupId,teacherMembershipId:user.membershipId||null,title:input.title||'Lesson',startsAt:start,endsAt:end,lateAfterMinutes:input.lateAfterMinutes}).returning();
+    await audit(tx,user,'attendance.session_opened',created.id,{classroomId:created.classroomId,groupId:created.groupId,startsAt:created.startsAt,endsAt:created.endsAt});
+    return hydrateSession(tx,created,true);
+  }));
+}
+
+export async function closeAttendanceSession(user,sessionId){
+  assertManage(user);
+  return withTransactionDatabase(db=>db.transaction(async tx=>{
+    const session=await requireSession(tx,user,sessionId);if(session.status!=='open')throw new AttendanceConflictError('This lesson is already closed');
+    const students=await tx.select({membershipId:groupMemberships.membershipId}).from(groupMemberships).where(and(eq(groupMemberships.groupId,session.groupId),eq(groupMemberships.relation,'student')));
+    if(students.length)await tx.insert(attendanceRecords).values(students.map(({membershipId})=>({sessionId,studentMembershipId:membershipId,status:'absent',markedByUserId:user.id}))).onConflictDoNothing();
+    const [closed]=await tx.update(attendanceSessions).set({status:'closed',closedAt:new Date(),updatedAt:new Date()}).where(and(eq(attendanceSessions.id,sessionId),eq(attendanceSessions.status,'open'))).returning();
+    if(!closed)throw new AttendanceConflictError('This lesson was closed in another window');
+    await audit(tx,user,'attendance.session_closed',sessionId,{studentCount:students.length});
+    return hydrateSession(tx,closed,true);
+  }));
+}
+
+export async function cancelAttendanceSession(user,sessionId){
+  assertManage(user);
+  return withTransactionDatabase(db=>db.transaction(async tx=>{
+    const session=await requireSession(tx,user,sessionId);if(session.status!=='open')throw new AttendanceConflictError('Only an open lesson can be cancelled');
+    await tx.delete(attendanceRecords).where(eq(attendanceRecords.sessionId,sessionId));
+    const [cancelled]=await tx.update(attendanceSessions).set({status:'cancelled',closedAt:new Date(),updatedAt:new Date()}).where(and(eq(attendanceSessions.id,sessionId),eq(attendanceSessions.status,'open'))).returning();
+    await audit(tx,user,'attendance.session_cancelled',sessionId,{});return hydrateSession(tx,cancelled,true);
+  }));
+}
+
+export async function markAttendance(user,{sessionId,studentMembershipId,status,note=''}){
+  if(!user.permissionKeys?.includes('attendance.override'))throw new AttendanceAccessError();
+  return withTransactionDatabase(db=>db.transaction(async tx=>{
+    const session=await requireSession(tx,user,sessionId);
+    const student=await tx.select({membershipId:groupMemberships.membershipId}).from(groupMemberships).innerJoin(schoolMemberships,eq(schoolMemberships.id,groupMemberships.membershipId)).where(and(eq(groupMemberships.groupId,session.groupId),eq(groupMemberships.membershipId,studentMembershipId),eq(groupMemberships.relation,'student'),eq(schoolMemberships.status,'active'))).limit(1);
+    if(!student.length)throw new AttendanceNotFoundError('Student is not in this group');
+    const checkedInAt=['present','late'].includes(status)?new Date():null;
+    const changes={status,checkedInAt,markedByUserId:user.id,note:note||null,updatedAt:new Date()};if(['absent','excused'].includes(status))changes.deskId=null;
+    const [record]=await tx.insert(attendanceRecords).values({sessionId,studentMembershipId,status,checkedInAt,markedByUserId:user.id,note:note||null}).onConflictDoUpdate({target:[attendanceRecords.sessionId,attendanceRecords.studentMembershipId],set:changes}).returning();
+    await audit(tx,user,'attendance.record_updated',sessionId,{studentMembershipId,status});return record;
+  }));
+}
+
+export async function checkInWithDesk(user,token){
+  if(user.role!=='student'||!user.membershipId)throw new AttendanceAccessError('Sign in with a student account to check in');
+  const desk=await getDeskByQrToken(token);if(!desk||!desk.classroomActive)throw new AttendanceNotFoundError('This desk code is unavailable');
+  if(desk.schoolId!==schoolFor(user))throw new AttendanceAccessError();
+  return withTransactionDatabase(db=>db.transaction(async tx=>{
+    const sessions=await tx.select().from(attendanceSessions).where(and(eq(attendanceSessions.classroomId,desk.classroomId),eq(attendanceSessions.status,'open'))).orderBy(desc(attendanceSessions.openedAt)).limit(1),session=sessions[0];
+    if(!session)throw new AttendanceConflictError('No lesson check-in is open in this classroom');
+    if(Date.now()>new Date(session.endsAt).getTime())throw new AttendanceConflictError('This lesson check-in window has ended');
+    const membership=await tx.select({id:groupMemberships.membershipId}).from(groupMemberships).where(and(eq(groupMemberships.groupId,session.groupId),eq(groupMemberships.membershipId,user.membershipId),eq(groupMemberships.relation,'student'))).limit(1);
+    if(!membership.length)throw new AttendanceAccessError('This lesson is for another group');
+    const occupied=await tx.select({id:attendanceRecords.id}).from(attendanceRecords).where(and(eq(attendanceRecords.sessionId,session.id),eq(attendanceRecords.deskId,desk.deskId),sql`${attendanceRecords.studentMembershipId} <> ${user.membershipId}`)).limit(1);
+    if(occupied.length)throw new AttendanceConflictError('This desk is already registered by another student');
+    const now=new Date(),status=attendanceStatus({startsAt:session.startsAt,lateAfterMinutes:session.lateAfterMinutes,checkedInAt:now});
+    const [record]=await tx.insert(attendanceRecords).values({sessionId:session.id,studentMembershipId:user.membershipId,deskId:desk.deskId,status,checkedInAt:now}).onConflictDoUpdate({target:[attendanceRecords.sessionId,attendanceRecords.studentMembershipId],set:{deskId:desk.deskId,status,checkedInAt:now,updatedAt:now}}).returning();
+    await audit(tx,user,'attendance.student_checked_in',session.id,{deskId:desk.deskId,status});
+    return {session:sessionDto(session,{classroomName:desk.classroomName}),record:recordDto(record,session,{deskCode:desk.deskCode,deskLabel:desk.deskLabel}),desk};
+  }));
+}
+
+async function requireSession(db,user,id){
+  const rows=await db.select().from(attendanceSessions).where(and(eq(attendanceSessions.id,id),eq(attendanceSessions.schoolId,schoolFor(user)))).limit(1),session=rows[0];if(!session)throw new AttendanceNotFoundError();if(!isSchoolWide(user)&&!canAccessGroup(user,session.groupId))throw new AttendanceAccessError();return session;
+}
+
+async function hydrateSession(db,session,withStudents){
+  const [roomRows,groupRows,records]=await Promise.all([
+    db.select({name:classrooms.name}).from(classrooms).where(eq(classrooms.id,session.classroomId)).limit(1),
+    db.select({name:groups.name}).from(groups).where(eq(groups.id,session.groupId)).limit(1),
+    db.select({record:attendanceRecords,firstName:users.firstName,lastName:users.lastName,email:users.email,deskCode:desks.code,deskLabel:desks.label}).from(attendanceRecords).innerJoin(schoolMemberships,eq(schoolMemberships.id,attendanceRecords.studentMembershipId)).innerJoin(users,eq(users.id,schoolMemberships.userId)).leftJoin(desks,eq(desks.id,attendanceRecords.deskId)).where(eq(attendanceRecords.sessionId,session.id)).orderBy(asc(users.firstName),asc(users.lastName))
+  ]);
+  let studentRows=[];
+  if(withStudents)studentRows=await db.select({membershipId:schoolMemberships.id,userId:users.id,firstName:users.firstName,lastName:users.lastName,email:users.email}).from(groupMemberships).innerJoin(schoolMemberships,eq(schoolMemberships.id,groupMemberships.membershipId)).innerJoin(users,eq(users.id,schoolMemberships.userId)).where(and(eq(groupMemberships.groupId,session.groupId),eq(groupMemberships.relation,'student'),eq(schoolMemberships.status,'active'),eq(users.active,true))).orderBy(asc(users.firstName),asc(users.lastName));
+  const mapped=records.map(row=>({...recordDto(row.record,session,{deskCode:row.deskCode,deskLabel:row.deskLabel}),firstName:row.firstName,lastName:row.lastName,email:row.email}));
+  const byMembership=new Map(mapped.map(item=>[item.studentMembershipId,item]));
+  return {...sessionDto(session,{classroomName:roomRows[0]?.name||'Classroom',groupName:groupRows[0]?.name||'Group'}),summary:attendanceSummary(mapped),records:mapped,students:studentRows.map(student=>({...student,record:byMembership.get(student.membershipId)||null}))};
+}
+
+function sessionDto(session,extra={}){return{id:session.id,classroomId:session.classroomId,groupId:session.groupId,title:session.title,startsAt:iso(session.startsAt),endsAt:iso(session.endsAt),lateAfterMinutes:session.lateAfterMinutes,status:session.status,openedAt:iso(session.openedAt),closedAt:iso(session.closedAt),...extra}}
+function recordDto(record,session,extra={}){return{id:record.id,sessionId:record.sessionId,studentMembershipId:record.studentMembershipId,deskId:record.deskId,status:record.status,checkedInAt:iso(record.checkedInAt),minutesLate:attendanceMinutesLate({startsAt:session.startsAt,checkedInAt:record.checkedInAt}),note:record.note||'',...extra}}
+function isSchoolWide(user){return user?.role==='admin'||user?.platformRole==='super_admin'}
+function canAccessGroup(user,groupId){return (user?.groupIds||[]).includes(groupId)}
+function assertManage(user){if(!user?.permissionKeys?.includes('attendance.manage_sessions'))throw new AttendanceAccessError()}
+function schoolFor(user){return user?.schoolId||defaultSchoolId()}
+function iso(value){return value instanceof Date?value.toISOString():value?new Date(value).toISOString():null}
+async function audit(db,user,action,entityId,metadata){await db.insert(auditLogs).values({schoolId:schoolFor(user),actorUserId:user.id,action,entityType:'attendance_session',entityId,metadata})}

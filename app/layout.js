@@ -21,6 +21,8 @@ import './teacher-hub.css';
 import './timetable.css';
 import './access-manager.css';
 import './classrooms.css';
+import './attendance.css';
+import './check-in.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

@@ -15,6 +15,13 @@
       "when": 1788813090039,
       "tag": "0001_kind_cargill",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788844495855,
+      "tag": "0002_tranquil_justice",
+      "breakpoints": true
     }
   ]
 }

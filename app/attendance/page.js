@@ -1,2 +1,18 @@
-import AppShell from '@/components/AppShell';import { PageHeader,StatCard,Badge } from '@/components/UI';import { requirePageUser } from '@/lib/page';import { readJson } from '@/lib/storage';import { getUsers } from '@/services/users';import { CalendarCheck,Clock3,UserX,Users } from 'lucide-react';
-export default async function Attendance(){const user=await requirePageUser([],'attendance');const users=await getUsers();let rows=await readJson('attendance',[]);if(user.role==='student')rows=rows.filter(item=>item.studentId===user.id);if(user.role==='teacher'){const groupIds=new Set(user.groupIds||[]),studentIds=new Set(users.filter(student=>(student.groupIds||[]).some(groupId=>groupIds.has(groupId))).map(student=>student.id));rows=rows.filter(item=>studentIds.has(item.studentId))}const avg=Math.round(rows.reduce((a,x)=>a+x.percentage,0)/(rows.length||1));return <AppShell user={user}><PageHeader eyebrow="Deskplan source" title="Attendance" description="Attendance is read from Deskplan; DevTrack does not duplicate the attendance system."/><div className="stats-grid"><StatCard label="Average attendance" value={`${avg}%`} icon={CalendarCheck}/><StatCard label="Present lessons" value={rows.reduce((a,x)=>a+x.present,0)} icon={Users}/><StatCard label="Late arrivals" value={rows.reduce((a,x)=>a+x.late,0)} icon={Clock3}/><StatCard label="Absent lessons" value={rows.reduce((a,x)=>a+x.absent,0)} icon={UserX}/></div><section className="panel"><div className="table-wrap"><table><thead><tr><th>Student</th><th>Attendance</th><th>Present</th><th>Late</th><th>Absent</th><th>Consultations</th><th>Source</th></tr></thead><tbody>{rows.map(a=>{const s=users.find(u=>u.id===a.studentId);return <tr key={a.studentId}><td><b>{s?.firstName} {s?.lastName}</b></td><td>{a.percentage}%</td><td>{a.present}</td><td>{a.late}</td><td>{a.absent}</td><td>{a.consultations}</td><td><Badge tone="purple">Deskplan</Badge></td></tr>})}</tbody></table></div></section></AppShell>}
+import Link from 'next/link';
+import AppShell from '@/components/AppShell';
+import AttendanceBoard from '@/components/AttendanceBoard';
+import { PageHeader } from '@/components/UI';
+import { requirePageUser } from '@/lib/page';
+import { getAttendanceDashboard,getStudentAttendance } from '@/services/attendance';
+import { getClassrooms } from '@/services/classrooms';
+import { getCoreGroups } from '@/services/coreDirectory';
+
+export default async function AttendancePage(){
+  const user=await requirePageUser([],'attendance');let attendance=null,classrooms=[],groups=[],error='';
+  try{
+    if(user.role==='student')attendance=await getStudentAttendance(user);
+    else [attendance,classrooms,groups]=await Promise.all([getAttendanceDashboard(user),getClassrooms(user,{includeInactive:false}),getCoreGroups()]);
+  }catch(cause){error=cause?.message||'Attendance is unavailable.'}
+  const allowedGroups=user.role==='admin'||user.platformRole==='super_admin'?groups:groups.filter(group=>(user.groupIds||[]).includes(group.id));
+  return <AppShell user={user}><PageHeader eyebrow="Deskplan · Live attendance" title={user.role==='student'?'My attendance':'Lesson control'} description={user.role==='student'?'Your lesson check-ins, late arrivals and attendance history.':'Open a lesson, watch the room fill live and correct attendance without leaving the page.'} actions={user.role!=='student'&&!error?<span className="attendance-live-chip"><i/> Live desk check-in</span>:null}/>{error?<section className="panel attendance-setup"><h2>Attendance needs a database update</h2><p>{error}</p><Link href="/settings" className="btn primary">Open database settings</Link></section>:<AttendanceBoard initialAttendance={attendance} classrooms={classrooms} groups={allowedGroups} userRole={user.role} canManage={user.permissionKeys?.includes('attendance.manage_sessions')} canOverride={user.permissionKeys?.includes('attendance.override')}/>}</AppShell>;
+}

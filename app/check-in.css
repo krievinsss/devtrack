@@ -1,0 +1,7 @@
+.desk-checkin-wait.ready{border-color:#abefc6;background:#ecfdf3;color:#067647}
+.desk-checkin-result{display:flex;align-items:center;gap:11px;margin:24px 0;border:1px solid #abefc6;background:#ecfdf3;color:#067647;border-radius:12px;padding:14px}
+.desk-checkin-result.late{border-color:#fedf89;background:#fffaeb;color:#b54708}
+.desk-checkin-result b,.desk-checkin-result p{display:block}
+.desk-checkin-result b{font-size:13px}.desk-checkin-result p{font-size:10px;margin:3px 0 0}
+.desk-checkin-card.checked .desk-checkin-icon{background:#ecfdf3;color:#067647}
+.desk-checkin-error{font-size:10px;color:#d92d20;background:#fef3f2;border:1px solid #fecdca;border-radius:9px;padding:10px;margin:-10px 0 14px}

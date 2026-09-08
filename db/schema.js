@@ -7,6 +7,8 @@ export const membershipStatus=pgEnum('membership_status',['invited','active','su
 export const groupRelation=pgEnum('group_relation',['student','teacher','lead_teacher']);
 export const permissionEffect=pgEnum('permission_effect',['allow','deny']);
 export const classroomAccessRole=pgEnum('classroom_access_role',['viewer','manager']);
+export const attendanceSessionStatus=pgEnum('attendance_session_status',['open','closed','cancelled']);
+export const attendanceRecordStatus=pgEnum('attendance_record_status',['present','late','absent','excused']);
 
 const createdAt=()=>timestamp('created_at',{withTimezone:true,mode:'date'}).defaultNow().notNull();
 const updatedAt=()=>timestamp('updated_at',{withTimezone:true,mode:'date'}).defaultNow().notNull();
@@ -195,6 +197,48 @@ export const desks=pgTable('desks',{
   index('desks_classroom_idx').on(table.classroomId),
   check('desks_position_check',sql`${table.x} >= 0 and ${table.y} >= 0`),
   check('desks_size_check',sql`${table.width} between 60 and 360 and ${table.height} between 40 and 260`)
+]);
+
+export const attendanceSessions=pgTable('attendance_sessions',{
+  id:uuid('id').defaultRandom().primaryKey(),
+  schoolId:text('school_id').notNull().references(()=>schools.id,{onDelete:'cascade'}),
+  classroomId:uuid('classroom_id').notNull().references(()=>classrooms.id,{onDelete:'restrict'}),
+  groupId:text('group_id').notNull().references(()=>groups.id,{onDelete:'restrict'}),
+  teacherMembershipId:uuid('teacher_membership_id').references(()=>schoolMemberships.id,{onDelete:'set null'}),
+  title:varchar('title',{length:160}).default('Lesson').notNull(),
+  startsAt:timestamp('starts_at',{withTimezone:true,mode:'date'}).notNull(),
+  endsAt:timestamp('ends_at',{withTimezone:true,mode:'date'}).notNull(),
+  lateAfterMinutes:integer('late_after_minutes').default(10).notNull(),
+  status:attendanceSessionStatus('status').default('open').notNull(),
+  openedAt:timestamp('opened_at',{withTimezone:true,mode:'date'}).defaultNow().notNull(),
+  closedAt:timestamp('closed_at',{withTimezone:true,mode:'date'}),
+  createdAt:createdAt(),
+  updatedAt:updatedAt()
+},table=>[
+  index('attendance_sessions_school_start_idx').on(table.schoolId,table.startsAt),
+  index('attendance_sessions_group_start_idx').on(table.groupId,table.startsAt),
+  index('attendance_sessions_classroom_status_idx').on(table.classroomId,table.status),
+  uniqueIndex('attendance_sessions_one_open_room_unique').on(table.classroomId).where(sql`${table.status} = 'open'`),
+  check('attendance_sessions_time_check',sql`${table.endsAt} > ${table.startsAt}`),
+  check('attendance_sessions_late_check',sql`${table.lateAfterMinutes} between 0 and 120`)
+]);
+
+export const attendanceRecords=pgTable('attendance_records',{
+  id:uuid('id').defaultRandom().primaryKey(),
+  sessionId:uuid('session_id').notNull().references(()=>attendanceSessions.id,{onDelete:'cascade'}),
+  studentMembershipId:uuid('student_membership_id').notNull().references(()=>schoolMemberships.id,{onDelete:'cascade'}),
+  deskId:uuid('desk_id').references(()=>desks.id,{onDelete:'set null'}),
+  status:attendanceRecordStatus('status').notNull(),
+  checkedInAt:timestamp('checked_in_at',{withTimezone:true,mode:'date'}),
+  markedByUserId:text('marked_by_user_id').references(()=>users.id,{onDelete:'set null'}),
+  note:varchar('note',{length:300}),
+  createdAt:createdAt(),
+  updatedAt:updatedAt()
+},table=>[
+  uniqueIndex('attendance_records_session_student_unique').on(table.sessionId,table.studentMembershipId),
+  uniqueIndex('attendance_records_session_desk_unique').on(table.sessionId,table.deskId).where(sql`${table.deskId} is not null`),
+  index('attendance_records_student_idx').on(table.studentMembershipId,table.createdAt),
+  index('attendance_records_session_status_idx').on(table.sessionId,table.status)
 ]);
 
 export const auditLogs=pgTable('audit_logs',{

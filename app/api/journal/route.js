@@ -5,6 +5,7 @@ import {
   JournalAccessError,
   JournalNotFoundError,
   replaceLessonPlan,
+  saveJournalEntry,
   saveJournalCourse,
 } from "@/services/journal";
 
@@ -34,7 +35,25 @@ const planSchema = z.object({
   courseId: id,
   items: z.array(planItem).max(500),
 });
-const schema = z.discriminatedUnion("action", [courseSchema, planSchema]);
+const entrySchema = z.object({
+  action: z.literal("saveEntry"),
+  id: z.string().uuid().optional(),
+  courseId: id,
+  type: z.enum(["lesson", "assessment"]).default("lesson"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startsAt: z.string().datetime().nullable().optional(),
+  endsAt: z.string().datetime().nullable().optional(),
+  topic: z.string().trim().max(300).default(""),
+  outcome: z.string().trim().max(2000).default(""),
+  attendanceOverrides: z
+    .record(z.string(), z.enum(["present", "absent"]))
+    .optional(),
+});
+const schema = z.discriminatedUnion("action", [
+  courseSchema,
+  planSchema,
+  entrySchema,
+]);
 
 export async function GET() {
   const auth = await requireApiUser([], { module: "attendance" });
@@ -58,6 +77,8 @@ export async function POST(request) {
         { course: await saveJournalCourse(auth.user, input) },
         { status: 201 },
       );
+    if (input.action === "saveEntry")
+      return ok({ entry: await saveJournalEntry(auth.user, input) });
     return ok({
       items: await replaceLessonPlan(auth.user, input.courseId, input.items),
     });

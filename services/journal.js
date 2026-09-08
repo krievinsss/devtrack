@@ -1,8 +1,15 @@
 import "server-only";
+import crypto from "node:crypto";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { database, withTransactionDatabase } from "@/db/client";
-import { auditLogs, journalCourses, lessonPlanItems } from "@/db/schema";
+import {
+  auditLogs,
+  journalCourses,
+  journalEntries,
+  lessonPlanItems,
+} from "@/db/schema";
 import { defaultSchoolId } from "@/db/directory";
+import { rigaDateTimeIso, timetableForRange } from "@/services/timetable";
 
 export class JournalAccessError extends Error {
   constructor(message = "You do not have access to this journal") {
@@ -139,6 +146,162 @@ export async function replaceLessonPlan(user, courseId, inputItems) {
   );
 }
 
+export function currentAcademicRange(now = new Date()) {
+  const year = now.getUTCFullYear(),
+    month = now.getUTCMonth() + 1;
+  const startYear = month >= 8 ? year : year - 1;
+  return { start: `${startYear}-08-01`, end: `${startYear + 1}-07-31` };
+}
+
+export async function syncJournalFromTimetable(user, groups, range) {
+  assertTeacher(user);
+  const lessons = await timetableForRange(user, groups, range.start, range.end);
+  if (!lessons.length) return { lessons: 0, courses: 0 };
+  const groupByName = new Map(
+    groups.map((group) => [normalize(group.name), group]),
+  );
+  let courseCount = 0;
+  await withTransactionDatabase((db) =>
+    db.transaction(async (tx) => {
+      const existing = await tx
+        .select()
+        .from(journalCourses)
+        .where(eq(journalCourses.schoolId, schoolFor(user)));
+      const courseMap = new Map(
+        existing.map((course) => [
+          courseKey(course.groupId, course.subject),
+          course,
+        ]),
+      );
+      for (const lesson of lessons) {
+        const group = groupByName.get(normalize(lesson.group));
+        if (
+          !group ||
+          (!isSchoolWide(user) && !(user.groupIds || []).includes(group.id))
+        )
+          continue;
+        const key = courseKey(group.id, lesson.subject);
+        let course = courseMap.get(key);
+        if (!course) {
+          [course] = await tx
+            .insert(journalCourses)
+            .values({
+              schoolId: schoolFor(user),
+              groupId: group.id,
+              teacherMembershipId: user.membershipId || null,
+              subject: lesson.subject,
+              active: true,
+            })
+            .returning();
+          courseMap.set(key, course);
+          courseCount += 1;
+        }
+        const sourceKey = `timetable:${lesson.date}:${lesson.id}:${lesson.period || 0}`;
+        await tx
+          .insert(journalEntries)
+          .values({
+            courseId: course.id,
+            source: "timetable",
+            sourceKey,
+            type: "lesson",
+            date: lesson.date,
+            startsAt: new Date(rigaDateTimeIso(lesson.date, lesson.start)),
+            endsAt: new Date(rigaDateTimeIso(lesson.date, lesson.end)),
+            timetableLessonId: lesson.id,
+            timetablePeriod: lesson.period || null,
+          })
+          .onConflictDoUpdate({
+            target: [journalEntries.courseId, journalEntries.sourceKey],
+            set: {
+              startsAt: new Date(rigaDateTimeIso(lesson.date, lesson.start)),
+              endsAt: new Date(rigaDateTimeIso(lesson.date, lesson.end)),
+              timetablePeriod: lesson.period || null,
+              updatedAt: new Date(),
+            },
+          });
+      }
+    }),
+  );
+  return { lessons: lessons.length, courses: courseCount };
+}
+
+export async function getJournalEntries(user, courseIds = []) {
+  assertTeacher(user);
+  if (!courseIds.length) return [];
+  const db = database();
+  const rows = await db
+    .select()
+    .from(journalEntries)
+    .where(inArray(journalEntries.courseId, courseIds))
+    .orderBy(asc(journalEntries.date), asc(journalEntries.startsAt));
+  return rows.map(entryDto);
+}
+
+export async function saveJournalEntry(user, input) {
+  assertManage(user);
+  return withTransactionDatabase((db) =>
+    db.transaction(async (tx) => {
+      const course = await requireCourse(tx, user, input.courseId);
+      let saved;
+      if (input.id) {
+        const rows = await tx
+          .select()
+          .from(journalEntries)
+          .where(
+            and(
+              eq(journalEntries.id, input.id),
+              eq(journalEntries.courseId, course.id),
+            ),
+          )
+          .limit(1);
+        if (!rows[0]) throw new JournalNotFoundError("Journal entry not found");
+        [saved] = await tx
+          .update(journalEntries)
+          .set({
+            date: rows[0].source === "manual" ? input.date : rows[0].date,
+            topic: input.topic || "",
+            outcome: input.outcome || "",
+            type: input.type || rows[0].type,
+            attendanceOverrides:
+              input.attendanceOverrides || rows[0].attendanceOverrides,
+            updatedAt: new Date(),
+          })
+          .where(eq(journalEntries.id, input.id))
+          .returning();
+      } else {
+        const start = input.startsAt ? new Date(input.startsAt) : null;
+        [saved] = await tx
+          .insert(journalEntries)
+          .values({
+            courseId: course.id,
+            source: "manual",
+            sourceKey: `manual:${crypto.randomUUID()}`,
+            type: input.type,
+            date: input.date,
+            startsAt: start,
+            endsAt: input.endsAt ? new Date(input.endsAt) : start,
+            topic: input.topic || "",
+            outcome: input.outcome || "",
+            attendanceOverrides: input.attendanceOverrides || {},
+            createdBy: user.id,
+          })
+          .returning();
+      }
+      await audit(
+        tx,
+        user,
+        input.id ? "journal.entry_updated" : "journal.entry_created",
+        saved.id,
+        {
+          courseId: course.id,
+          source: saved.source,
+        },
+      );
+      return entryDto(saved);
+    }),
+  );
+}
+
 async function requireCourse(db, user, id) {
   const rows = await db
     .select()
@@ -192,15 +355,31 @@ function planDto(item) {
     updatedAt: iso(item.updatedAt),
   };
 }
+function entryDto(item) {
+  return {
+    ...item,
+    startsAt: iso(item.startsAt),
+    endsAt: iso(item.endsAt),
+    createdAt: iso(item.createdAt),
+    updatedAt: iso(item.updatedAt),
+  };
+}
+function courseKey(groupId, subject) {
+  return `${groupId}:${normalize(subject)}`;
+}
+function normalize(value) {
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("lv-LV")
+    .replace(/\s+/g, " ");
+}
 async function audit(db, user, action, entityId, metadata) {
-  await db
-    .insert(auditLogs)
-    .values({
-      schoolId: schoolFor(user),
-      actorUserId: user.id,
-      action,
-      entityType: "journal_course",
-      entityId,
-      metadata,
-    });
+  await db.insert(auditLogs).values({
+    schoolId: schoolFor(user),
+    actorUserId: user.id,
+    action,
+    entityType: "journal_course",
+    entityId,
+    metadata,
+  });
 }

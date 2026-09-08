@@ -2,6 +2,8 @@
 import {
   BookOpen,
   CalendarDays,
+  ChevronDown,
+  ChevronUp,
   ClipboardPaste,
   GripVertical,
   Plus,
@@ -117,28 +119,7 @@ export default function LessonPlanManager({
       setBusy(false);
     }
   }
-  function importBulk(text) {
-    const rows = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [topic, outcome = "", type = "lesson"] = line.split("\t");
-        return {
-          ...blank(),
-          topic,
-          outcome,
-          type: [
-            "lesson",
-            "practical",
-            "formative",
-            "summative",
-            "final",
-          ].includes(type)
-            ? type
-            : "lesson",
-        };
-      });
+  function importBulk(rows) {
     setItems((current) => [...current, ...rows]);
     setBulk(false);
   }
@@ -344,7 +325,26 @@ export default function LessonPlanManager({
   );
 }
 function BulkPaste({ close, apply }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(""),
+    [rows, setRows] = useState([]);
+  function analyze() {
+    setRows(parseLessonPlan(text));
+  }
+  function patch(index, key, value) {
+    setRows((current) =>
+      current.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
+    );
+  }
+  function move(index, amount) {
+    const target = index + amount;
+    if (target < 0 || target >= rows.length) return;
+    setRows((current) => {
+      const next = [...current],
+        [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return next;
+    });
+  }
   return (
     <div className="modal-backdrop" onMouseDown={close}>
       <div
@@ -364,23 +364,110 @@ function BulkPaste({ close, apply }) {
             <X size={17} />
           </button>
         </header>
-        <textarea
-          autoFocus
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          placeholder={
-            "Introduction to databases\tExplains database concepts\tlesson\nRelational models\tCreates table relationships\tpractical"
-          }
-        />
+        {!rows.length ? (
+          <textarea
+            autoFocus
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            placeholder={
+              "Introduction to databases\tExplains database concepts\tlesson\nRelational models\tCreates table relationships\tpractical"
+            }
+          />
+        ) : (
+          <div className="smart-paste-preview">
+            <div className="smart-paste-head">
+              <span>#</span>
+              <span>Lesson topic</span>
+              <span>Learning outcome</span>
+              <span />
+            </div>
+            {rows.map((row, index) => (
+              <div className="smart-paste-row" key={index}>
+                <b>{index + 1}</b>
+                <input
+                  value={row.topic}
+                  onChange={(event) =>
+                    patch(index, "topic", event.target.value)
+                  }
+                />
+                <textarea
+                  value={row.outcome}
+                  onChange={(event) =>
+                    patch(index, "outcome", event.target.value)
+                  }
+                />
+                <div>
+                  <button onClick={() => move(index, -1)}>
+                    <ChevronUp size={13} />
+                  </button>
+                  <button onClick={() => move(index, 1)}>
+                    <ChevronDown size={13} />
+                  </button>
+                  <button
+                    onClick={() =>
+                      setRows((current) =>
+                        current.filter((_, i) => i !== index),
+                      )
+                    }
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <footer>
+          {rows.length > 0 && (
+            <button className="btn secondary" onClick={() => setRows([])}>
+              Back
+            </button>
+          )}
           <button className="btn secondary" onClick={close}>
             Cancel
           </button>
-          <button className="btn primary" onClick={() => apply(text)}>
-            <ClipboardPaste size={14} /> Import topics
+          <button
+            className="btn primary"
+            disabled={
+              rows.length ? rows.some((row) => !row.topic.trim()) : !text.trim()
+            }
+            onClick={() => (rows.length ? apply(rows) : analyze())}
+          >
+            <ClipboardPaste size={14} />{" "}
+            {rows.length ? `Add ${rows.length} lessons` : "Create preview"}
           </button>
         </footer>
       </div>
     </div>
   );
+}
+
+function parseLessonPlan(text) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const cleaned = line.replace(/^\s*\d+[.)]\s*/, "");
+      let parts = cleaned.includes("\t")
+        ? cleaned.split("\t")
+        : cleaned.includes("|")
+          ? cleaned.split("|")
+          : cleaned.split(/\s+[–—-]\s+/, 2);
+      parts = parts.map((value) => value.trim()).filter(Boolean);
+      return {
+        ...blank(),
+        topic: parts[0] || "",
+        outcome: parts[1] || "",
+        type: [
+          "lesson",
+          "practical",
+          "formative",
+          "summative",
+          "final",
+        ].includes(parts[2])
+          ? parts[2]
+          : "lesson",
+      };
+    });
 }

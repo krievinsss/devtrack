@@ -1,32 +1,42 @@
 "use client";
+
 import Link from "next/link";
 import {
+  BarChart3,
   BookOpen,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   ClipboardCheck,
-  Clock3,
-  Filter,
+  Plus,
+  Save,
   Search,
   Settings2,
-  UserX,
+  X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { gradeFromPercent } from "@/lib/grading";
+import { ProjectEvidence } from "@/components/TeacherGradebook";
 
 export default function TeacherJournal({
   courses = [],
   groups = [],
   students = [],
   lessons = [],
-  assessments = [],
+  entries: initialEntries = [],
+  assessments: initialAssessments = [],
+  projects = [],
+  evidenceByProject = {},
+  syncWarning = "",
 }) {
   const [courseId, setCourseId] = useState(courses[0]?.id || ""),
     [semester, setSemester] = useState("all"),
     [query, setQuery] = useState(""),
-    [selected, setSelected] = useState(null);
-  const course =
-    courses.find((item) => item.id === courseId) || courses[0] || null;
+    [entries, setEntries] = useState(initialEntries),
+    [assessments, setAssessments] = useState(initialAssessments),
+    [editor, setEditor] = useState(null),
+    [adding, setAdding] = useState(false),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const course = courses.find((item) => item.id === courseId) || courses[0];
   const model = useMemo(
     () =>
       buildJournal({
@@ -35,27 +45,139 @@ export default function TeacherJournal({
         groups,
         students,
         lessons,
+        entries,
         assessments,
         semester,
       }),
-    [course, courses, groups, students, lessons, assessments, semester],
+    [
+      course,
+      courses,
+      groups,
+      students,
+      lessons,
+      entries,
+      assessments,
+      semester,
+    ],
   );
+
+  async function saveEntry(input) {
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/journal", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            action: "saveEntry",
+            courseId: course.id,
+            ...input,
+          }),
+        }),
+        body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Could not save journal entry");
+      setEntries((current) => [
+        body.entry,
+        ...current.filter((item) => item.id !== body.entry.id),
+      ]);
+      setEditor(null);
+      setAdding(false);
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function saveGrade(value) {
+    setBusy(true);
+    setError("");
+    try {
+      const column = value.column,
+        project = projects.find(
+          (item) =>
+            item.studentId === value.student.id &&
+            item.assignmentId === column.assignmentId,
+        );
+      if (!project)
+        throw new Error("This student does not have a linked project.");
+      const url =
+        column.kind === "final"
+          ? "/api/assessments"
+          : column.kind === "formative"
+            ? "/api/formative"
+            : "/api/summative";
+      const payload =
+        column.kind === "final"
+          ? {
+              id: value.current?.id,
+              projectId: project.id,
+              studentId: value.student.id,
+              criteria: value.scores,
+              correctionType: value.correctionType,
+            }
+          : {
+              action: "grade",
+              eventId: column.id,
+              studentId: value.student.id,
+              scores: value.scores,
+              feedback: value.feedback,
+              positive: value.positive,
+              improvement: value.improvement,
+              correctionType: value.correctionType,
+            };
+      const response = await fetch(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+        body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Could not save grade");
+      const result = column.kind === "final" ? body.item : body.result;
+      setAssessments((current) =>
+        current.map((item) =>
+          item.id === column.id
+            ? {
+                ...item,
+                results: [
+                  result,
+                  ...(item.results || []).filter(
+                    (row) => row.studentId !== value.student.id,
+                  ),
+                ],
+              }
+            : item,
+        ),
+      );
+      setEditor(null);
+      window.dispatchEvent(new Event("devtrack-data-refresh"));
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!course)
     return (
       <section className="panel journal-empty">
         <BookOpen size={32} />
-        <h2>Create a subject journal first</h2>
+        <h2>No journal yet</h2>
         <p>
-          Open Lesson Planning, choose a group and subject, and add the planned
-          lesson topics.
+          Today’s timetable lessons create journals automatically. You can also
+          create one in Lesson Planning.
         </p>
         <Link href="/lesson-planning" className="btn primary">
-          Create lesson plan
+          Open Lesson Planning
         </Link>
       </section>
     );
   return (
     <div className="teacher-journal">
+      {syncWarning && (
+        <div className="notice danger">Timetable sync: {syncWarning}</div>
+      )}
+      {error && <div className="notice danger">{error}</div>}
       <section className="panel journal-toolbar">
         <label className="journal-course-select">
           <span>Journal</span>
@@ -63,7 +185,7 @@ export default function TeacherJournal({
             value={course.id}
             onChange={(event) => {
               setCourseId(event.target.value);
-              setSelected(null);
+              setEditor(null);
             }}
           >
             {courses.map((item) => (
@@ -86,42 +208,35 @@ export default function TeacherJournal({
           </select>
         </label>
         <div className="journal-toolbar-actions">
+          <button className="btn primary" onClick={() => setAdding(true)}>
+            <Plus size={14} /> Add
+          </button>
           <Link href="/lesson-planning" className="btn secondary">
             <Settings2 size={14} /> Lesson plan
           </Link>
         </div>
       </section>
       <section className="journal-summary">
-        <div>
-          <CalendarDays size={17} />
-          <span>
-            <b>
-              {model.columns.filter((item) => item.kind === "lesson").length}
-            </b>{" "}
-            lessons
-          </span>
-        </div>
-        <div>
-          <ClipboardCheck size={17} />
-          <span>
-            <b>
-              {model.columns.filter((item) => item.kind !== "lesson").length}
-            </b>{" "}
-            assessments
-          </span>
-        </div>
-        <div>
-          <BookOpen size={17} />
-          <span>
-            <b>{course.items.length}</b> planned topics
-          </span>
-        </div>
-        <div>
-          <Clock3 size={17} />
-          <span>
-            <b>{model.averageAttendance}%</b> attendance
-          </span>
-        </div>
+        <Summary
+          icon={CalendarDays}
+          value={model.lessonCount}
+          label="lessons"
+        />
+        <Summary
+          icon={ClipboardCheck}
+          value={model.assessmentCount}
+          label="assessments"
+        />
+        <Summary
+          icon={BookOpen}
+          value={course.items.length}
+          label="planned topics"
+        />
+        <Summary
+          icon={BarChart3}
+          value={`${model.averageAttendance}%`}
+          label="attendance"
+        />
       </section>
       <section className="panel journal-sheet-card">
         <header>
@@ -131,8 +246,8 @@ export default function TeacherJournal({
             </span>
             <h2>{course.subject}</h2>
             <p>
-              {course.academicYear || "Current academic year"} · topics and
-              results synchronize automatically
+              Timetable creates the lesson; Lesson Planning and Attendance fill
+              it automatically.
             </p>
           </div>
           <label>
@@ -140,7 +255,7 @@ export default function TeacherJournal({
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search student…"
+              placeholder="Search…"
             />
           </label>
         </header>
@@ -154,10 +269,16 @@ export default function TeacherJournal({
                   <th
                     key={column.id}
                     className={`journal-column-head ${column.kind}`}
-                    onClick={() => setSelected(column)}
+                    onClick={() =>
+                      column.entryId && setEditor({ mode: "entry", column })
+                    }
                   >
                     <span>{shortDate(column.date)}</span>
-                    <b>{column.period || typeMark(column.kind)}</b>
+                    <b>
+                      {column.kind === "lesson"
+                        ? column.period || ""
+                        : typeMark(column.kind)}
+                    </b>
                     <small>
                       {column.kind === "lesson"
                         ? "ST"
@@ -176,10 +297,7 @@ export default function TeacherJournal({
                   <tr key={row.id}>
                     <td className="journal-number">{index + 1}</td>
                     <td className="journal-student-col">
-                      <button
-                        onClick={() => setSelected({ kind: "student", ...row })}
-                      >
-                        <span>{initials(row.name)}</span>
+                      <button>
                         <b>{row.name}</b>
                       </button>
                     </td>
@@ -190,18 +308,31 @@ export default function TeacherJournal({
                       return (
                         <td
                           key={column.id}
-                          className={`journal-cell ${column.kind} ${cell?.status || ""}`}
+                          className={`journal-cell ${column.kind}`}
                           onClick={() =>
-                            setSelected({ ...column, focusStudent: row })
+                            setEditor(
+                              column.kind === "lesson"
+                                ? { mode: "attendance", column, student: row }
+                                : column.entryId
+                                  ? { mode: "entry", column }
+                                  : {
+                                      mode: "grade",
+                                      column,
+                                      student: row,
+                                      current: cell,
+                                    },
+                            )
                           }
                         >
-                          {cell ? (
-                            <CellValue cell={cell} kind={column.kind} />
-                          ) : column.future ? (
-                            <span className="journal-future-dot">·</span>
-                          ) : (
-                            <span />
-                          )}
+                          {column.kind === "lesson" ? (
+                            cell?.status === "absent" ? (
+                              <strong className="journal-absence">n</strong>
+                            ) : null
+                          ) : cell ? (
+                            <strong className="journal-grade">
+                              {cell.grade}
+                            </strong>
+                          ) : null}
                         </td>
                       );
                     })}
@@ -212,127 +343,358 @@ export default function TeacherJournal({
           {!model.columns.length && (
             <div className="journal-no-columns">
               <CalendarDays size={26} />
-              <h3>No journal entries yet</h3>
+              <h3>No entries for this period</h3>
               <p>
-                Open an attendance lesson or schedule an assessment to create
-                the first column automatically.
+                Today’s timetable sync creates regular lessons, or use “Add” for
+                an exception.
               </p>
             </div>
           )}
         </div>
       </section>
-      {selected && (
-        <JournalInspector
-          item={selected}
-          course={course}
-          close={() => setSelected(null)}
+      {adding && (
+        <EntryModal
+          title="Add journal entry"
+          initial={{
+            type: "lesson",
+            date: localDate(),
+            topic: "",
+            outcome: "",
+          }}
+          busy={busy}
+          close={() => setAdding(false)}
+          save={saveEntry}
+        />
+      )}
+      {editor?.mode === "entry" && (
+        <EntryModal
+          title="Lesson entry"
+          initial={editor.column}
+          busy={busy}
+          close={() => setEditor(null)}
+          save={saveEntry}
+        />
+      )}
+      {editor?.mode === "attendance" && (
+        <AttendanceModal
+          value={editor}
+          busy={busy}
+          close={() => setEditor(null)}
+          save={(status) =>
+            saveEntry({
+              id: editor.column.entryId,
+              date: isoDate(editor.column.date),
+              type: "lesson",
+              topic: editor.column.manualTopic || "",
+              outcome: editor.column.manualOutcome || "",
+              attendanceOverrides: {
+                ...(editor.column.attendanceOverrides || {}),
+                [editor.student.id]: status,
+              },
+            })
+          }
+        />
+      )}
+      {editor?.mode === "grade" && (
+        <GradeModal
+          value={editor}
+          projects={projects}
+          evidenceByProject={evidenceByProject}
+          busy={busy}
+          close={() => setEditor(null)}
+          save={saveGrade}
         />
       )}
     </div>
   );
 }
 
-function CellValue({ cell, kind }) {
-  if (kind !== "lesson")
-    return <strong className="journal-grade">{cell.grade ?? "—"}</strong>;
-  if (cell.status === "absent")
-    return <strong className="journal-absence">n</strong>;
-  if (cell.status === "excused")
-    return <strong className="journal-excused">nᶜ</strong>;
-  if (cell.status === "late")
-    return (
-      <strong className="journal-late">
-        k<small>{cell.minutesLate || ""}</small>
-      </strong>
-    );
-  return <i className="journal-present" />;
-}
-function JournalInspector({ item, course, close }) {
+function Summary({ icon: Icon, value, label }) {
   return (
-    <aside className="journal-inspector">
-      <header>
-        <button onClick={close}>
-          <ChevronRight size={18} />
-        </button>
-        <div>
-          <span className="eyebrow">
-            {item.kind === "student" ? "STUDENT" : item.kind.toUpperCase()}
-          </span>
-          <h2>{item.kind === "student" ? item.name : item.title}</h2>
-          <p>
-            {item.date
-              ? new Date(item.date).toLocaleString("lv-LV", {
-                  dateStyle: "long",
-                  timeStyle: item.kind === "lesson" ? "short" : undefined,
-                })
-              : course.subject}
-          </p>
-        </div>
-      </header>
-      {item.kind === "student" ? (
-        <div className="journal-student-inspector">
-          <div>
-            <b>{item.attendance}%</b>
-            <span>Attendance</span>
-          </div>
-          <div>
-            <b>{item.averageGrade || "—"}</b>
-            <span>Average grade</span>
-          </div>
-          <div>
-            <b>{item.late}</b>
-            <span>Late lessons</span>
-          </div>
-        </div>
-      ) : (
-        <>
-          <section>
-            <span className="eyebrow">LESSON CONTENT</span>
-            <h3>
-              {item.topic ||
-                (item.kind === "lesson" ? "Topic not planned yet" : item.title)}
-            </h3>
-            <p>
-              {item.outcome || "Add the learning outcome in Lesson Planning."}
-            </p>
-            {item.planType && <em>{item.planType}</em>}
-          </section>
-          {item.focusStudent && (
-            <section>
-              <span className="eyebrow">SELECTED STUDENT</span>
-              <h3>{item.focusStudent.name}</h3>
-              <p>
-                {cellDescription(
-                  item.results.find(
-                    (result) => result.studentId === item.focusStudent.id,
-                  ),
-                  item.kind,
-                )}
-              </p>
-            </section>
-          )}
-          <section>
-            <span className="eyebrow">COLUMN SUMMARY</span>
-            <div className="journal-inspector-results">
-              <b>{item.results.length}</b>
-              <span>
-                {item.kind === "lesson"
-                  ? "attendance records"
-                  : "published grades"}
-              </span>
-            </div>
-          </section>
-        </>
-      )}
-    </aside>
+    <div>
+      <Icon size={17} />
+      <span>
+        <b>{value}</b>
+        {label}
+      </span>
+    </div>
   );
 }
-function cellDescription(cell, kind) {
-  if (!cell) return "No result has been recorded yet.";
-  if (kind !== "lesson") return `Grade ${cell.grade} · ${cell.percent ?? 0}%`;
-  if (cell.status === "late")
-    return `Late by ${cell.minutesLate || 0} minutes.`;
-  return `Attendance status: ${cell.status}.`;
+function EntryModal({ title, initial, busy, close, save }) {
+  const [form, setForm] = useState({
+    id: initial.entryId || initial.id,
+    type: initial.type === "assessment" ? "assessment" : "lesson",
+    date: isoDate(initial.date),
+    topic: initial.manualTopic ?? initial.topic ?? "",
+    outcome: initial.manualOutcome ?? initial.outcome ?? "",
+    source: initial.source || "manual",
+  });
+  return (
+    <Modal title={title} close={close}>
+      <label>
+        <span>Entry type</span>
+        <select
+          value={form.type}
+          onChange={(e) => setForm({ ...form, type: e.target.value })}
+        >
+          <option value="lesson">Lesson</option>
+          <option value="assessment">Assessment</option>
+        </select>
+      </label>
+      <label>
+        <span>Date</span>
+        <input
+          type="date"
+          disabled={form.source === "timetable"}
+          value={form.date}
+          onChange={(e) => setForm({ ...form, date: e.target.value })}
+        />
+      </label>
+      <label>
+        <span>Lesson topic</span>
+        <input
+          value={form.topic}
+          onChange={(e) => setForm({ ...form, topic: e.target.value })}
+        />
+      </label>
+      <label>
+        <span>Learning outcome</span>
+        <textarea
+          value={form.outcome}
+          onChange={(e) => setForm({ ...form, outcome: e.target.value })}
+        />
+      </label>
+      <footer>
+        <button className="btn secondary" onClick={close}>
+          Cancel
+        </button>
+        <button
+          className="btn primary"
+          disabled={busy || !form.date}
+          onClick={() => save(form)}
+        >
+          <Save size={14} /> {busy ? "Saving…" : "Save"}
+        </button>
+      </footer>
+    </Modal>
+  );
+}
+function AttendanceModal({ value, busy, close, save }) {
+  const [status, setStatus] = useState(
+    value.column.results.find((item) => item.studentId === value.student.id)
+      ?.status || "present",
+  );
+  return (
+    <Modal title={value.student.name} close={close}>
+      <div className="journal-detail-copy">
+        <span className="eyebrow">ATTENDANCE</span>
+        <h3>{value.column.title}</h3>
+        <p>{longDate(value.column.date)}</p>
+      </div>
+      <label>
+        <span>Status</span>
+        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="present">Present (empty cell)</option>
+          <option value="absent">Absent (n)</option>
+        </select>
+      </label>
+      <footer>
+        <button className="btn secondary" onClick={close}>
+          Cancel
+        </button>
+        <button
+          className="btn primary"
+          disabled={busy}
+          onClick={() => save(status)}
+        >
+          Save
+        </button>
+      </footer>
+    </Modal>
+  );
+}
+function GradeModal({ value, projects, evidenceByProject, busy, close, save }) {
+  const criteria = value.column.criteria || [],
+    current = value.current,
+    [scores, setScores] = useState(
+      criteria.map((criterion) => ({
+        name: criterion.name,
+        max: Number(criterion.max || 0),
+        score: Number(
+          current?.scores?.find((item) => item.name === criterion.name)
+            ?.score ??
+            criterion.score ??
+            0,
+        ),
+      })),
+    ),
+    [feedback, setFeedback] = useState(current?.feedback || ""),
+    [positive, setPositive] = useState(current?.positive || ""),
+    [improvement, setImprovement] = useState(current?.improvement || ""),
+    [correctionType, setCorrectionType] = useState("ordinary");
+  const total = scores.reduce((sum, item) => sum + Number(item.score || 0), 0),
+    max = scores.reduce((sum, item) => sum + Number(item.max || 0), 0),
+    percent = max ? Math.round((total / max) * 100) : 0,
+    project = projects.find(
+      (item) =>
+        item.studentId === value.student.id &&
+        item.assignmentId === value.column.assignmentId,
+    ),
+    evidence = evidenceByProject[project?.id] || {},
+    repoUrl = project?.githubRepo
+      ? `https://github.com/${project.githubOwner}/${project.githubRepo}`
+      : "";
+  return (
+    <Modal
+      wide
+      title={`${value.student.name} · ${value.column.title}`}
+      close={close}
+    >
+      <div className="journal-grade-summary">
+        <div>
+          <span>Points</span>
+          <b>
+            {total}/{max}
+          </b>
+        </div>
+        <div>
+          <span>Percent</span>
+          <b>{percent}%</b>
+        </div>
+        <div>
+          <span>Grade</span>
+          <b>{gradeFromPercent(percent)}</b>
+        </div>
+      </div>
+      {scores.map((criterion, index) => (
+        <label className="journal-criterion" key={`${criterion.name}-${index}`}>
+          <span>
+            {criterion.name} · max {criterion.max}
+          </span>
+          <input
+            type="number"
+            min="0"
+            max={criterion.max}
+            value={criterion.score}
+            onChange={(e) =>
+              setScores((items) =>
+                items.map((item, i) =>
+                  i === index
+                    ? {
+                        ...item,
+                        score: Math.max(
+                          0,
+                          Math.min(item.max, Number(e.target.value) || 0),
+                        ),
+                      }
+                    : item,
+                ),
+              )
+            }
+          />
+        </label>
+      ))}
+      {value.column.kind === "formative" && (
+        <>
+          <label>
+            <span>What went well</span>
+            <textarea
+              value={positive}
+              onChange={(e) => setPositive(e.target.value)}
+            />
+          </label>
+          <label>
+            <span>Needs improvement</span>
+            <textarea
+              value={improvement}
+              onChange={(e) => setImprovement(e.target.value)}
+            />
+          </label>
+        </>
+      )}
+      <label>
+        <span>Feedback</span>
+        <textarea
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+        />
+      </label>
+      {(current?.revisionHistory || []).length > 0 && (
+        <label>
+          <span>Correction type</span>
+          <select
+            value={correctionType}
+            onChange={(e) => setCorrectionType(e.target.value)}
+          >
+            <option value="ordinary">Ordinary change</option>
+            <option value="substantive">Substantive correction</option>
+            <option value="input_error">Input error</option>
+          </select>
+        </label>
+      )}
+      {(current?.revisionHistory || []).length > 0 && (
+        <section className="journal-revision-history">
+          <b>Change history</b>
+          {current.revisionHistory.map((item, index) => (
+            <p key={index}>
+              {item.oldGrade} → {item.newGrade} ·{" "}
+              {correctionLabel(item.correctionType)} ·{" "}
+              {new Date(item.changedAt).toLocaleString("lv-LV")}
+            </p>
+          ))}
+        </section>
+      )}
+      <footer>
+        <button className="btn secondary" onClick={close}>
+          Cancel
+        </button>
+        <button
+          className="btn primary"
+          disabled={busy || !scores.length}
+          onClick={() =>
+            save({
+              ...value,
+              scores,
+              feedback,
+              positive,
+              improvement,
+              correctionType,
+            })
+          }
+        >
+          <Save size={14} /> {busy ? "Saving…" : "Save grade"}
+        </button>
+      </footer>
+      {project && (
+        <ProjectEvidence
+          editor={{
+            project,
+            commits: evidence.commits || [],
+            aiReviews: evidence.aiReviews || [],
+          }}
+          repoUrl={repoUrl}
+        />
+      )}
+    </Modal>
+  );
+}
+function Modal({ title, close, wide = false, children }) {
+  return (
+    <div className="journal-modal-backdrop" onMouseDown={close}>
+      <div
+        className={`journal-modal ${wide ? "wide" : ""}`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header>
+          <h2>{title}</h2>
+          <button onClick={close}>
+            <X size={17} />
+          </button>
+        </header>
+        <main>{children}</main>
+      </div>
+    </div>
+  );
 }
 
 function buildJournal({
@@ -341,10 +703,18 @@ function buildJournal({
   groups,
   students,
   lessons,
+  entries,
   assessments,
   semester,
 }) {
-  if (!course) return { columns: [], rows: [], averageAttendance: 0 };
+  if (!course)
+    return {
+      columns: [],
+      rows: [],
+      averageAttendance: 0,
+      lessonCount: 0,
+      assessmentCount: 0,
+    };
   const group = groups.find((item) => item.id === course.groupId),
     members = new Set(group?.studentIds || []),
     rows = students
@@ -352,99 +722,116 @@ function buildJournal({
       .map((student) => ({
         id: student.id,
         name: `${student.firstName} ${student.lastName}`.trim(),
-        email: student.email,
       }));
+  const courseEntries = entries
+    .filter((entry) => entry.courseId === course.id)
+    .sort(
+      (a, b) => new Date(a.startsAt || a.date) - new Date(b.startsAt || b.date),
+    );
+  const lessonColumns = courseEntries.map((entry) => {
+    const sequenceIndex = courseEntries
+      .filter((item) => item.type === "lesson")
+      .findIndex((item) => item.id === entry.id);
+    const plan =
+        course.items.find(
+          (item) =>
+            item.plannedDate === entry.date &&
+            (!item.timetablePeriod ||
+              Number(item.timetablePeriod) === Number(entry.timetablePeriod)),
+        ) || (sequenceIndex >= 0 ? course.items[sequenceIndex] : null),
+      attendance = lessons.find(
+        (item) =>
+          item.groupId === course.groupId &&
+          isoDate(item.startsAt) === entry.date &&
+          Number(item.period || 0) === Number(entry.timetablePeriod || 0) &&
+          relatedSubject(item.subject, course.subject),
+      ),
+      results = rows
+        .map((student) => {
+          const override = entry.attendanceOverrides?.[student.id];
+          if (override) return { studentId: student.id, status: override };
+          const recorded = attendance?.results?.find(
+            (item) => item.studentId === student.id,
+          );
+          if (recorded) return recorded;
+          return attendance
+            ? { studentId: student.id, status: "absent" }
+            : null;
+        })
+        .filter(Boolean);
+    return {
+      ...entry,
+      entryId: entry.id,
+      kind: entry.type === "assessment" ? "summative" : "lesson",
+      date: entry.startsAt || `${entry.date}T12:00:00Z`,
+      period: entry.timetablePeriod,
+      manualTopic: entry.topic,
+      manualOutcome: entry.outcome,
+      topic: entry.topic || plan?.topic || "",
+      outcome: entry.outcome || plan?.outcome || "",
+      title: entry.topic || plan?.topic || course.subject,
+      results,
+    };
+  });
   const groupCourses = courses.filter(
       (item) => item.groupId === course.groupId,
     ),
-    subject = normalize(course.subject);
-  let lessonColumns = lessons
-    .filter(
-      (item) =>
-        item.groupId === course.groupId &&
-        (normalize(item.subject) === subject || groupCourses.length === 1),
-    )
-    .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt))
-    .map((lesson, index) => {
-      const date = isoDate(lesson.startsAt),
-        plan =
-          course.items.find(
-            (item) =>
-              item.plannedDate === date &&
-              (!item.timetablePeriod ||
-                Number(item.timetablePeriod) === Number(lesson.period)),
-          ) || course.items[index];
-      return {
-        ...lesson,
-        kind: "lesson",
-        date: lesson.startsAt,
-        title: plan?.topic || lesson.subject,
-        topic: plan?.topic || "",
-        outcome: plan?.outcome || "",
-        planType: plan?.type || "lesson",
-        future: new Date(lesson.startsAt) > new Date(),
-      };
-    });
-  let assessmentColumns = assessments
-    .filter(
-      (item) =>
-        item.groupId === course.groupId &&
-        (groupCourses.length === 1 || relatedAssessment(course, item)),
-    )
-    .map((item) => ({
-      ...item,
-      date: item.date,
-      topic: item.title,
-      outcome: "",
-      future: new Date(item.date) > new Date(),
-      results: (item.results || []).map((result) => ({
-        studentId: result.studentId,
-        grade: result.grade,
-        percent: result.percent,
+    assessmentColumns = assessments
+      .filter(
+        (item) =>
+          item.groupId === course.groupId &&
+          (groupCourses.length === 1 || relatedAssessment(course, item)),
+      )
+      .map((item) => ({
+        ...item,
+        date: item.date,
+        results: item.results || [],
       })),
-    }));
-  let columns = [...lessonColumns, ...assessmentColumns]
-    .filter((item) => semesterMatch(item.date, semester))
-    .sort(
-      (a, b) =>
-        new Date(a.date) - new Date(b.date) ||
-        kindOrder(a.kind) - kindOrder(b.kind),
-    );
-  for (const row of rows) {
-    const attendance = lessonColumns.flatMap((column) =>
-        column.results.filter((result) => result.studentId === row.id),
+    columns = [...lessonColumns, ...assessmentColumns]
+      .filter((item) => semesterMatch(item.date, semester))
+      .sort(
+        (a, b) =>
+          new Date(a.date) - new Date(b.date) ||
+          kindOrder(a.kind) - kindOrder(b.kind),
       ),
-      grades = assessmentColumns
-        .flatMap((column) =>
-          column.results
-            .filter((result) => result.studentId === row.id)
-            .map((result) => Number(result.grade)),
-        )
-        .filter(Number.isFinite),
-      attended = attendance.filter((item) =>
-        ["present", "late"].includes(item.status),
-      ).length,
-      counted = attendance.filter((item) => item.status !== "excused").length;
-    row.attendance = counted ? Math.round((attended / counted) * 100) : 0;
-    row.averageGrade = grades.length
-      ? Number(
-          (
-            grades.reduce((sum, value) => sum + value, 0) / grades.length
-          ).toFixed(1),
-        )
-      : 0;
-    row.late = attendance.filter((item) => item.status === "late").length;
-  }
-  const allAttendance = lessonColumns.flatMap((column) => column.results),
-    attended = allAttendance.filter((item) =>
-      ["present", "late"].includes(item.status),
-    ).length,
-    counted = allAttendance.filter((item) => item.status !== "excused").length;
+    attendanceColumns = lessonColumns.filter(
+      (column) => column.kind === "lesson",
+    ),
+    recorded = attendanceColumns.flatMap((column) => column.results),
+    attended = recorded.filter(
+      (item) => item.status === "present" || item.status === "late",
+    ).length;
   return {
     columns,
     rows,
-    averageAttendance: counted ? Math.round((attended / counted) * 100) : 0,
+    lessonCount: attendanceColumns.length,
+    assessmentCount:
+      assessmentColumns.length +
+      lessonColumns.filter((column) => column.kind !== "lesson").length,
+    averageAttendance: recorded.length
+      ? Math.round((attended / recorded.length) * 100)
+      : 0,
   };
+}
+function relatedAssessment(course, assessment) {
+  const subject = normalize(course.subject),
+    assignment = normalize(assessment.assignmentTitle),
+    title = normalize(assessment.title);
+  return (
+    (assignment &&
+      (assignment.includes(subject) || subject.includes(assignment))) ||
+    (title && (title.includes(subject) || subject.includes(title))) ||
+    course.items.some(
+      (item) =>
+        item.type === assessment.kind &&
+        (!item.plannedDate || item.plannedDate === isoDate(assessment.date)),
+    )
+  );
+}
+function relatedSubject(a, b) {
+  const left = normalize(a),
+    right = normalize(b);
+  return left === right || left.includes(right) || right.includes(left);
 }
 function semesterMatch(date, semester) {
   if (semester === "all") return true;
@@ -457,43 +844,40 @@ function kindOrder(kind) {
 function normalize(value) {
   return String(value || "")
     .trim()
-    .toLowerCase()
+    .toLocaleLowerCase("lv-LV")
     .replace(/\s+/g, " ");
 }
-function relatedAssessment(course, assessment) {
-  const subject = normalize(course.subject),
-    assignment = normalize(assessment.assignmentTitle),
-    title = normalize(assessment.title);
-  if (
-    (assignment &&
-      (assignment.includes(subject) || subject.includes(assignment))) ||
-    (title && (title.includes(subject) || subject.includes(title)))
-  )
-    return true;
-  return course.items.some(
-    (item) =>
-      item.type === assessment.kind &&
-      (!item.plannedDate ||
-        item.plannedDate === isoDate(assessment.date) ||
-        normalize(item.topic) === title),
-  );
-}
 function isoDate(value) {
-  return new Date(value).toISOString().slice(0, 10);
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? String(value || "").slice(0, 10)
+    : date.toISOString().slice(0, 10);
+}
+function localDate() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Riga" }).format(
+    new Date(),
+  );
 }
 function shortDate(value) {
   return new Date(value)
     .toLocaleDateString("lv-LV", { day: "2-digit", month: "2-digit" })
     .replaceAll(".", "/");
 }
+function longDate(value) {
+  return new Date(value).toLocaleString("lv-LV", {
+    dateStyle: "long",
+    timeStyle: "short",
+  });
+}
 function typeMark(kind) {
   return { formative: "F", summative: "S", final: "G" }[kind] || "";
 }
-function initials(name) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+function correctionLabel(value) {
+  return (
+    {
+      ordinary: "ordinary",
+      substantive: "substantive",
+      input_error: "input error",
+    }[value] || value
+  );
 }

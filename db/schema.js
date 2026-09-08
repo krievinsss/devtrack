@@ -576,6 +576,57 @@ export const lessonPlanItems = pgTable(
   ],
 );
 
+export const journalEntries = pgTable(
+  "journal_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => journalCourses.id, { onDelete: "cascade" }),
+    source: varchar("source", { length: 30 }).default("manual").notNull(),
+    sourceKey: varchar("source_key", { length: 240 }).notNull(),
+    type: varchar("type", { length: 30 }).default("lesson").notNull(),
+    date: varchar("date", { length: 10 }).notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true, mode: "date" }),
+    endsAt: timestamp("ends_at", { withTimezone: true, mode: "date" }),
+    timetableLessonId: varchar("timetable_lesson_id", { length: 180 }),
+    timetablePeriod: integer("timetable_period"),
+    attendanceSessionId: uuid("attendance_session_id").references(
+      () => attendanceSessions.id,
+      { onDelete: "set null" },
+    ),
+    topic: varchar("topic", { length: 300 }).default("").notNull(),
+    outcome: text("outcome").default("").notNull(),
+    attendanceOverrides: jsonb("attendance_overrides")
+      .default(sql`'{}'::jsonb`)
+      .notNull(),
+    metadata: jsonb("metadata")
+      .default(sql`'{}'::jsonb`)
+      .notNull(),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("journal_entries_course_source_unique").on(
+      table.courseId,
+      table.sourceKey,
+    ),
+    index("journal_entries_course_date_idx").on(table.courseId, table.date),
+    index("journal_entries_attendance_idx").on(table.attendanceSessionId),
+    check(
+      "journal_entries_source_check",
+      sql`${table.source} in ('timetable','manual','assessment')`,
+    ),
+    check(
+      "journal_entries_type_check",
+      sql`${table.type} in ('lesson','assessment','consultation','other')`,
+    ),
+  ],
+);
+
 export const auditLogs = pgTable(
   "audit_logs",
   {

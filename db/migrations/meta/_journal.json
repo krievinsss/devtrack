@@ -36,6 +36,13 @@
       "when": 1788866629550,
       "tag": "0004_rainy_venom",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788892224722,
+      "tag": "0005_gigantic_red_hulk",
+      "breakpoints": true
     }
   ]
 }

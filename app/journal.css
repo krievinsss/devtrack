@@ -141,8 +141,8 @@
   position: sticky !important;
   left: 42px;
   z-index: 4 !important;
-  width: 240px;
-  min-width: 240px;
+  width: 158px;
+  min-width: 158px;
   text-align: left !important;
   box-shadow: 4px 0 7px rgba(2, 6, 23, 0.04);
 }
@@ -214,6 +214,9 @@
 }
 .journal-student-col button b {
   font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .journal-cell {
   width: 50px;
@@ -258,7 +261,7 @@
   font-size: 6px;
 }
 .journal-present {
-  display: block;
+  display: none;
   width: 6px;
   height: 6px;
   margin: auto;
@@ -653,6 +656,173 @@
   color: var(--text);
   font: 11px/1.5 monospace;
   resize: vertical;
+}
+.journal-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(7px);
+}
+.journal-modal {
+  width: min(540px, 96vw);
+  max-height: 92vh;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--card);
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.35);
+}
+.journal-modal.wide {
+  width: min(900px, 96vw);
+}
+.journal-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.journal-modal > header h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.journal-modal > header button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.journal-modal > main {
+  max-height: calc(92vh - 66px);
+  overflow: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.journal-modal label > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.journal-modal footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 6px;
+}
+.journal-grade-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.journal-grade-summary div {
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.journal-grade-summary span,
+.journal-grade-summary b {
+  display: block;
+}
+.journal-grade-summary span {
+  color: var(--muted);
+  font-size: 8px;
+}
+.journal-grade-summary b {
+  margin-top: 4px;
+  font-size: 18px;
+}
+.journal-criterion {
+  display: grid;
+  grid-template-columns: 1fr 90px;
+  align-items: center;
+  gap: 12px;
+}
+.journal-criterion input {
+  text-align: center;
+  font-weight: 800;
+}
+.journal-revision-history {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.journal-revision-history p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+.journal-detail-copy h3 {
+  margin: 5px 0;
+}
+.journal-detail-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+.smart-paste-preview {
+  max-height: 430px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.smart-paste-head,
+.smart-paste-row {
+  display: grid;
+  grid-template-columns: 35px minmax(180px, 0.8fr) minmax(240px, 1.2fr) 92px;
+  gap: 7px;
+  align-items: center;
+  padding: 8px;
+}
+.smart-paste-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 7px;
+  text-transform: uppercase;
+}
+.smart-paste-row {
+  border-top: 1px solid var(--border);
+}
+.smart-paste-row b {
+  text-align: center;
+  font-size: 9px;
+}
+.smart-paste-row textarea {
+  min-height: 42px;
+  resize: vertical;
+}
+.smart-paste-row > div {
+  display: flex;
+  gap: 4px;
+}
+.smart-paste-row button {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
 }
 @media (max-width: 900px) {
   .lesson-planner {

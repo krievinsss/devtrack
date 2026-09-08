@@ -121,6 +121,46 @@ export async function timetableForUser(
   });
 }
 
+export async function timetableForRange(user, groups, start, end) {
+  const identity = timetableIdentity(user, groups);
+  if (!identity.names.length) return [];
+  const base = String(process.env.TIMETABLE_API_URL || DEFAULT_API_URL).replace(
+    /\/$/,
+    "",
+  );
+  const weeks = [];
+  for (let monday = mondayOf(start); monday <= end; monday = addDays(monday, 7))
+    weeks.push(monday);
+  const responses = await Promise.allSettled(
+    weeks.flatMap((monday) =>
+      identity.names.map(async (name) => ({
+        monday,
+        raw: await fetchLessons({
+          base,
+          type: identity.type,
+          name,
+          start: addDays(monday, -2),
+          end: addDays(monday, 4),
+          fresh: false,
+        }),
+      })),
+    ),
+  );
+  const unique = new Map();
+  for (const response of responses) {
+    if (response.status !== "fulfilled") continue;
+    for (const lesson of normalizeLessons(
+      response.value.raw,
+      response.value.monday,
+    ))
+      if (lesson.date >= start && lesson.date <= end)
+        unique.set(`${lesson.date}:${lesson.id}`, lesson);
+  }
+  return [...unique.values()].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start),
+  );
+}
+
 export function attendanceBlocksFromTimetable(lessons, groups) {
   const groupIds = new Map(
       (groups || []).map((group) => [normalizeIdentity(group.name), group.id]),
@@ -322,7 +362,7 @@ function normalizeIdentity(value) {
     .replace(/\s+/g, " ");
 }
 
-function rigaDateTimeIso(dateValue, timeValue) {
+export function rigaDateTimeIso(dateValue, timeValue) {
   const desired = Date.parse(`${dateValue}T${timeValue}:00Z`);
   let guess = desired;
   for (let pass = 0; pass < 2; pass += 1) {

@@ -11,6 +11,7 @@ import {
   groupMemberships,
   groups,
   journalCourses,
+  journalEntries,
   schoolMemberships,
   users,
 } from "@/db/schema";
@@ -421,6 +422,30 @@ export async function openAttendanceSession(user, input) {
           subject: input.title || "Lesson",
         })
         .onConflictDoNothing();
+      const [journalCourse] = await tx
+        .select({ id: journalCourses.id })
+        .from(journalCourses)
+        .where(
+          and(
+            eq(journalCourses.groupId, input.groupId),
+            sql`lower(${journalCourses.subject}) = lower(${input.title || "Lesson"})`,
+          ),
+        )
+        .limit(1);
+      if (journalCourse)
+        for (const lesson of timetableLessons)
+          await tx
+            .update(journalEntries)
+            .set({ attendanceSessionId: created.id, updatedAt: new Date() })
+            .where(
+              and(
+                eq(journalEntries.courseId, journalCourse.id),
+                eq(
+                  journalEntries.sourceKey,
+                  `timetable:${lesson.date}:${lesson.id}:${lesson.period || 0}`,
+                ),
+              ),
+            );
       await audit(tx, user, "attendance.session_opened", created.id, {
         classroomId: created.classroomId,
         groupId: created.groupId,

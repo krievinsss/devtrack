@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import {
-  BarChart3,
   BookOpen,
   CalendarDays,
-  ClipboardCheck,
   Plus,
   Save,
   Search,
@@ -179,8 +177,12 @@ export default function TeacherJournal({
       )}
       {error && <div className="notice danger">{error}</div>}
       <section className="panel journal-toolbar">
+        <div className="journal-view-title">
+          <BookOpen size={18} />
+          <b>Journal</b>
+        </div>
         <label className="journal-course-select">
-          <span>Journal</span>
+          <span>Class and subject</span>
           <select
             value={course.id}
             onChange={(event) => {
@@ -216,39 +218,11 @@ export default function TeacherJournal({
           </Link>
         </div>
       </section>
-      <section className="journal-summary">
-        <Summary
-          icon={CalendarDays}
-          value={model.lessonCount}
-          label="lessons"
-        />
-        <Summary
-          icon={ClipboardCheck}
-          value={model.assessmentCount}
-          label="assessments"
-        />
-        <Summary
-          icon={BookOpen}
-          value={course.items.length}
-          label="planned topics"
-        />
-        <Summary
-          icon={BarChart3}
-          value={`${model.averageAttendance}%`}
-          label="attendance"
-        />
-      </section>
       <section className="panel journal-sheet-card">
         <header>
           <div>
-            <span className="eyebrow">
-              {groups.find((group) => group.id === course.groupId)?.name}
-            </span>
-            <h2>{course.subject}</h2>
-            <p>
-              Timetable creates the lesson; Lesson Planning and Attendance fill
-              it automatically.
-            </p>
+            <h2>{groups.find((group) => group.id === course.groupId)?.name} · {course.subject}</h2>
+            <p>{model.rows.length} students · {model.lessonCount} lessons · {model.assessmentCount} assessments</p>
           </div>
           <label>
             <Search size={14} />
@@ -273,7 +247,7 @@ export default function TeacherJournal({
                       column.entryId && setEditor({ mode: "entry", column })
                     }
                   >
-                    <span>{shortDate(column.date)}</span>
+                    <span>{compactDate(column.date)}</span>
                     <b>
                       {column.kind === "lesson"
                         ? column.period || ""
@@ -329,9 +303,7 @@ export default function TeacherJournal({
                               <strong className="journal-absence">n</strong>
                             ) : null
                           ) : cell ? (
-                            <strong className="journal-grade">
-                              {cell.grade}
-                            </strong>
+                            <strong className="journal-grade">{cell.grade}</strong>
                           ) : null}
                         </td>
                       );
@@ -409,17 +381,6 @@ export default function TeacherJournal({
   );
 }
 
-function Summary({ icon: Icon, value, label }) {
-  return (
-    <div>
-      <Icon size={17} />
-      <span>
-        <b>{value}</b>
-        {label}
-      </span>
-    </div>
-  );
-}
 function EntryModal({ title, initial, busy, close, save }) {
   const [form, setForm] = useState({
     id: initial.entryId || initial.id,
@@ -695,6 +656,12 @@ function Modal({ title, close, wide = false, children }) {
       </div>
     </div>
   );
+}
+
+function compactDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function buildJournal({

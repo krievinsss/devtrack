@@ -1,6 +1,5 @@
 import AppShell from "@/components/AppShell";
 import TeacherJournal from "@/components/TeacherJournal";
-import { PageHeader } from "@/components/UI";
 import { requirePageUser } from "@/lib/page";
 import { readJson } from "@/lib/storage";
 import { getJournalLessonColumns } from "@/services/attendance";
@@ -129,11 +128,6 @@ export default async function JournalPage() {
   ].filter((item) => groupIds.has(item.groupId));
   return (
     <AppShell user={user}>
-      <PageHeader
-        eyebrow="Digital journal"
-        title="Journal"
-        description="Attendance, lesson topics and assessments in one automatically maintained gradebook."
-      />
       <TeacherJournal
         courses={courses}
         groups={groups}

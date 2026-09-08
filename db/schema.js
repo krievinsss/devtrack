@@ -1,11 +1,12 @@
 import { sql } from 'drizzle-orm';
-import { boolean,index,integer,jsonb,pgEnum,pgTable,primaryKey,text,timestamp,uniqueIndex,uuid,varchar } from 'drizzle-orm/pg-core';
+import { boolean,check,index,integer,jsonb,pgEnum,pgTable,primaryKey,text,timestamp,uniqueIndex,uuid,varchar } from 'drizzle-orm/pg-core';
 
 export const platformRole=pgEnum('platform_role',['user','super_admin']);
 export const schoolRole=pgEnum('school_role',['school_admin','teacher','student']);
 export const membershipStatus=pgEnum('membership_status',['invited','active','suspended','archived']);
 export const groupRelation=pgEnum('group_relation',['student','teacher','lead_teacher']);
 export const permissionEffect=pgEnum('permission_effect',['allow','deny']);
+export const classroomAccessRole=pgEnum('classroom_access_role',['viewer','manager']);
 
 const createdAt=()=>timestamp('created_at',{withTimezone:true,mode:'date'}).defaultNow().notNull();
 const updatedAt=()=>timestamp('updated_at',{withTimezone:true,mode:'date'}).defaultNow().notNull();
@@ -144,6 +145,56 @@ export const groupMemberships=pgTable('group_memberships',{
   primaryKey({columns:[table.groupId,table.membershipId],name:'group_memberships_pk'}),
   index('group_memberships_membership_idx').on(table.membershipId),
   index('group_memberships_group_relation_idx').on(table.groupId,table.relation)
+]);
+
+export const classrooms=pgTable('classrooms',{
+  id:uuid('id').defaultRandom().primaryKey(),
+  schoolId:text('school_id').notNull().references(()=>schools.id,{onDelete:'cascade'}),
+  name:varchar('name',{length:120}).notNull(),
+  slug:varchar('slug',{length:140}).notNull(),
+  canvasWidth:integer('canvas_width').default(1000).notNull(),
+  canvasHeight:integer('canvas_height').default(600).notNull(),
+  version:integer('version').default(1).notNull(),
+  active:boolean('active').default(true).notNull(),
+  createdAt:createdAt(),
+  updatedAt:updatedAt()
+},table=>[
+  uniqueIndex('classrooms_school_slug_lower_unique').on(table.schoolId,sql`lower(${table.slug})`),
+  index('classrooms_school_active_idx').on(table.schoolId,table.active),
+  check('classrooms_canvas_width_check',sql`${table.canvasWidth} between 400 and 3000`),
+  check('classrooms_canvas_height_check',sql`${table.canvasHeight} between 300 and 2000`),
+  check('classrooms_version_check',sql`${table.version} > 0`)
+]);
+
+export const classroomStaff=pgTable('classroom_staff',{
+  classroomId:uuid('classroom_id').notNull().references(()=>classrooms.id,{onDelete:'cascade'}),
+  membershipId:uuid('membership_id').notNull().references(()=>schoolMemberships.id,{onDelete:'cascade'}),
+  role:classroomAccessRole('role').default('viewer').notNull(),
+  createdAt:createdAt(),
+  updatedAt:updatedAt()
+},table=>[
+  primaryKey({columns:[table.classroomId,table.membershipId],name:'classroom_staff_pk'}),
+  index('classroom_staff_membership_idx').on(table.membershipId)
+]);
+
+export const desks=pgTable('desks',{
+  id:uuid('id').defaultRandom().primaryKey(),
+  classroomId:uuid('classroom_id').notNull().references(()=>classrooms.id,{onDelete:'cascade'}),
+  code:varchar('code',{length:32}).notNull(),
+  label:varchar('label',{length:80}),
+  x:integer('x').default(0).notNull(),
+  y:integer('y').default(0).notNull(),
+  width:integer('width').default(120).notNull(),
+  height:integer('height').default(80).notNull(),
+  qrToken:uuid('qr_token').defaultRandom().notNull(),
+  createdAt:createdAt(),
+  updatedAt:updatedAt()
+},table=>[
+  uniqueIndex('desks_classroom_code_lower_unique').on(table.classroomId,sql`lower(${table.code})`),
+  uniqueIndex('desks_qr_token_unique').on(table.qrToken),
+  index('desks_classroom_idx').on(table.classroomId),
+  check('desks_position_check',sql`${table.x} >= 0 and ${table.y} >= 0`),
+  check('desks_size_check',sql`${table.width} between 60 and 360 and ${table.height} between 40 and 260`)
 ]);
 
 export const auditLogs=pgTable('audit_logs',{

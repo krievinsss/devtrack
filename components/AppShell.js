@@ -1,11 +1,11 @@
 'use client';
 import Link from 'next/link';
 import { usePathname,useRouter } from 'next/navigation';
-import { LayoutDashboard,Users,FolderGit2,UserRound,GraduationCap,ClipboardCheck,Settings,LogOut,Search,Moon,Sun,PanelLeftClose,PanelLeftOpen,ShoppingBag,Coins,Trophy,X,Sparkles,Music2,MessageSquareText,CalendarDays,ShieldCheck } from 'lucide-react';
+import { LayoutDashboard,Users,FolderGit2,UserRound,GraduationCap,ClipboardCheck,Settings,LogOut,Search,Moon,Sun,PanelLeftClose,PanelLeftOpen,ShoppingBag,Coins,Trophy,X,Sparkles,Music2,MessageSquareText,CalendarDays,ShieldCheck,Armchair } from 'lucide-react';
 import { useCallback,useEffect,useState } from 'react';
 import { avatarAsset } from '@/lib/avatarAssets';
 import NotificationsBell from './NotificationsBell';
-const teacherNav=[['/dashboard','Dashboard',LayoutDashboard,null],['/timetable','Timetable',CalendarDays,'timetable'],['/groups','Students & Groups',GraduationCap,'groups'],['/projects','Projects',FolderGit2,'projects'],['/stackdev','StackDev',MessageSquareText,'stackdev'],['/music','Classroom Music',Music2,'music'],['/attendance','Attendance',UserRound,'attendance'],['/assessments','Grades',ClipboardCheck,'grades'],['/settings/access','Teachers & Access',ShieldCheck,'administration','administration.manage_access'],['/settings','Settings',Settings,'administration']];
+const teacherNav=[['/dashboard','Dashboard',LayoutDashboard,null],['/timetable','Timetable',CalendarDays,'timetable'],['/classrooms','Classrooms & Desks',Armchair,'classrooms'],['/groups','Students & Groups',GraduationCap,'groups'],['/projects','Projects',FolderGit2,'projects'],['/stackdev','StackDev',MessageSquareText,'stackdev'],['/music','Classroom Music',Music2,'music'],['/attendance','Attendance',UserRound,'attendance'],['/assessments','Grades',ClipboardCheck,'grades'],['/settings/access','Teachers & Access',ShieldCheck,'administration','administration.manage_access'],['/settings','Settings',Settings,'administration']];
 const studentNav=[['/dashboard','Dashboard',LayoutDashboard,null],['/timetable','Timetable',CalendarDays,'timetable'],['/projects','My Projects',FolderGit2,'projects'],['/classmates','Classmates',Users,'groups'],['/stackdev','StackDev',MessageSquareText,'stackdev'],['/music','Classroom Music',Music2,'music'],['/achievements','Achievements',Trophy,'achievements'],['/attendance','Attendance',UserRound,'attendance'],['/assessments','Assessments',ClipboardCheck,'grades'],['/shop','DevCredits Shop',ShoppingBag,'achievements']];
 export default function AppShell({user,children}){
   const path=usePathname(),router=useRouter();

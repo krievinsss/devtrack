@@ -790,15 +790,36 @@ function sessionDto(session, extra = {}) {
   };
 }
 function recordDto(record, session, extra = {}) {
+  const timetableLessons = sessionLessons(session);
+  const lessonStatuses = (record.lessonStatuses || []).map((lesson, index) => {
+    const timetableLesson =
+      timetableLessons.find(
+        (item) =>
+          (lesson.lessonId && item.id === lesson.lessonId) ||
+          (lesson.period && Number(item.period) === Number(lesson.period)),
+      ) || timetableLessons[index];
+    const startsAt = timetableLesson?.startsAt || session.startsAt;
+    return {
+      ...lesson,
+      startsAt: iso(startsAt),
+      endsAt: iso(timetableLesson?.endsAt || session.endsAt),
+      minutesLate:
+        lesson.status === "late" && record.checkedInAt
+          ? attendanceMinutesLate({ startsAt, checkedInAt: record.checkedInAt })
+          : 0,
+    };
+  });
   return {
     id: record.id,
     sessionId: record.sessionId,
     studentMembershipId: record.studentMembershipId,
     deskId: record.deskId,
+    title: session.title,
+    startsAt: iso(session.startsAt),
+    endsAt: iso(session.endsAt),
     status: record.status,
-    lessonStatuses: record.lessonStatuses || [],
-    lessonCount:
-      (record.lessonStatuses || []).length || session.lessonCount || 1,
+    lessonStatuses,
+    lessonCount: lessonStatuses.length || session.lessonCount || 1,
     checkedInAt: iso(record.checkedInAt),
     minutesLate: attendanceMinutesLate({
       startsAt: session.startsAt,

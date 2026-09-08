@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Armchair,
   CalendarDays,
@@ -483,7 +483,18 @@ function StudentGrid({ session, canOverride, busy, mark }) {
                       : ""}
                   </em>
                 )}
-                {(student.attendanceStats?.total||0)>0&&<em className="attendance-cumulative">{student.attendanceStats.attended}/{student.attendanceStats.total} lessons · late {Math.round(student.attendanceStats.late/student.attendanceStats.total*100)}%</em>}
+                {(student.attendanceStats?.total || 0) > 0 && (
+                  <em className="attendance-cumulative">
+                    {student.attendanceStats.attended}/
+                    {student.attendanceStats.total} lessons · late{" "}
+                    {Math.round(
+                      (student.attendanceStats.late /
+                        student.attendanceStats.total) *
+                        100,
+                    )}
+                    %
+                  </em>
+                )}
               </div>
               {canOverride && session.status !== "cancelled" && (
                 <div className="attendance-quick">
@@ -702,9 +713,66 @@ function OpenLessonModal({ classrooms, groups, onClose, onCreated }) {
 }
 
 function StudentAttendance({ attendance }) {
-  const { records = [], summary = {} } = attendance || {};
+  const { records = [] } = attendance || {};
+  const [period, setPeriod] = useState("90");
+  const [referenceNow] = useState(() => Date.now());
+  const lessons = useMemo(() => {
+    const from =
+      period === "all" ? 0 : referenceNow - Number(period) * 86400000;
+    return records
+      .flatMap((record) => {
+        const statuses = record.lessonStatuses?.length
+          ? record.lessonStatuses
+          : [
+              {
+                status: record.status,
+                startsAt: record.startsAt,
+                minutesLate: record.minutesLate,
+              },
+            ];
+        return statuses.map((lesson, index) => ({
+          ...lesson,
+          id: `${record.id}:${lesson.lessonId || lesson.period || index}`,
+          title: record.title || "Lesson",
+          groupName: record.groupName,
+          classroomName: record.classroomName,
+          deskCode: record.deskCode,
+          deskLabel: record.deskLabel,
+          startsAt: lesson.startsAt || record.startsAt,
+        }));
+      })
+      .filter((lesson) => new Date(lesson.startsAt).getTime() >= from)
+      .sort((a, b) => new Date(b.startsAt) - new Date(a.startsAt));
+  }, [period, records, referenceNow]);
+  const summary = useMemo(() => studentLessonSummary(lessons), [lessons]);
+  const weeks = useMemo(
+    () => studentAttendanceWeeks(lessons, referenceNow),
+    [lessons, referenceNow],
+  );
   return (
     <div className="student-attendance">
+      <section className="panel student-attendance-hero">
+        <div>
+          <span className="eyebrow">MY DISCIPLINE</span>
+          <h2>Your attendance overview</h2>
+          <p>
+            Follow your attendance and punctuality across every concrete
+            timetable lesson.
+          </p>
+        </div>
+        <label>
+          <span>Period</span>
+          <select
+            value={period}
+            onChange={(event) => setPeriod(event.target.value)}
+          >
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">School year</option>
+            <option value="all">All time</option>
+          </select>
+        </label>
+      </section>
       <section className="attendance-metrics">
         <AttendanceMetric
           icon={CalendarDays}
@@ -720,7 +788,7 @@ function StudentAttendance({ attendance }) {
         />
         <AttendanceMetric
           icon={Clock3}
-          label={`Late · ${summary.total?Math.round(summary.late/summary.total*100):0}%`}
+          label={`Late · ${summary.lateRate}%`}
           value={summary.late || 0}
           tone="amber"
         />
@@ -731,6 +799,87 @@ function StudentAttendance({ attendance }) {
           tone="red"
         />
       </section>
+      <section className="student-attendance-insights">
+        <div className="panel student-attendance-chart">
+          <div className="attendance-section-title">
+            <div>
+              <span className="eyebrow">8 WEEK TREND</span>
+              <h3>Attendance momentum</h3>
+            </div>
+            <strong>{summary.percentage}%</strong>
+          </div>
+          <div className="student-week-bars">
+            {weeks.map((week) => (
+              <div key={week.key}>
+                <span>
+                  <i style={{ height: `${week.percentage}%` }} />
+                </span>
+                <b>{week.percentage}%</b>
+                <small>{week.label}</small>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="panel student-attendance-breakdown-card">
+          <div className="attendance-section-title">
+            <div>
+              <span className="eyebrow">BREAKDOWN</span>
+              <h3>Lesson outcomes</h3>
+            </div>
+          </div>
+          <div
+            className="student-attendance-donut"
+            style={{ background: studentDonut(summary) }}
+          >
+            <div>
+              <b>{summary.attended}</b>
+              <small>attended</small>
+            </div>
+          </div>
+          <div className="student-breakdown-legend">
+            <span className="present">
+              <i />
+              Present <b>{summary.present}</b>
+            </span>
+            <span className="late">
+              <i />
+              Late <b>{summary.late}</b>
+            </span>
+            <span className="absent">
+              <i />
+              Absent <b>{summary.absent}</b>
+            </span>
+            <span className="excused">
+              <i />
+              Excused <b>{summary.excused}</b>
+            </span>
+          </div>
+        </div>
+        <div className={`panel student-attendance-health ${summary.health}`}>
+          <span>
+            <UserCheck size={24} />
+          </span>
+          <small>Current status</small>
+          <h3>
+            {summary.health === "good"
+              ? "On track"
+              : summary.health === "watch"
+                ? "Keep an eye on it"
+                : "Needs attention"}
+          </h3>
+          <p>
+            {summary.health === "good"
+              ? "Your attendance and punctuality look healthy."
+              : summary.health === "watch"
+                ? "A few more missed or late lessons could affect your progress."
+                : "Focus on attending the next lessons and arriving on time."}
+          </p>
+          <div>
+            <b>{summary.lateMinutes}</b>
+            <small>total minutes late</small>
+          </div>
+        </div>
+      </section>
       <section className="panel student-attendance-history">
         <div className="attendance-section-title">
           <div>
@@ -739,7 +888,7 @@ function StudentAttendance({ attendance }) {
           </div>
           <strong>{summary.percentage || 0}% attendance</strong>
         </div>
-        {records.map((record) => (
+        {lessons.map((record) => (
           <article key={record.id}>
             <span className={`student-history-icon ${record.status}`}>
               {record.status === "present" ? (
@@ -760,7 +909,11 @@ function StudentAttendance({ attendance }) {
                   ? ` · ${record.deskLabel || record.deskCode}`
                   : ""}
               </small>
-              {record.lessonStatuses?.length>0&&<span className="student-period-statuses">{record.lessonStatuses.map((lesson,index)=><i className={lesson.status} key={lesson.lessonId||index}>#{lesson.period||index+1} {lesson.status}</i>)}</span>}
+              {record.minutesLate > 0 && (
+                <span className="student-late-detail">
+                  Late by {record.minutesLate} minutes
+                </span>
+              )}
             </div>
             <time>{fmt(record.startsAt)}</time>
             <span className={`attendance-status ${record.status}`}>
@@ -768,7 +921,7 @@ function StudentAttendance({ attendance }) {
             </span>
           </article>
         ))}
-        {!records.length && (
+        {!lessons.length && (
           <div className="attendance-history-empty">
             <History size={27} />
             <h3>No attendance yet</h3>
@@ -780,6 +933,71 @@ function StudentAttendance({ attendance }) {
       </section>
     </div>
   );
+}
+
+function studentLessonSummary(lessons) {
+  const summary = {
+    total: lessons.length,
+    present: 0,
+    late: 0,
+    absent: 0,
+    excused: 0,
+  };
+  for (const lesson of lessons)
+    if (summary[lesson.status] !== undefined) summary[lesson.status] += 1;
+  summary.attended = summary.present + summary.late;
+  const counted = summary.total - summary.excused;
+  summary.percentage = counted
+    ? Math.round((summary.attended / counted) * 100)
+    : 0;
+  summary.lateRate = summary.attended
+    ? Math.round((summary.late / summary.attended) * 100)
+    : 0;
+  summary.lateMinutes = lessons.reduce(
+    (sum, lesson) => sum + Number(lesson.minutesLate || 0),
+    0,
+  );
+  summary.health =
+    !summary.total || (summary.percentage >= 85 && summary.lateRate < 20)
+      ? "good"
+      : summary.percentage >= 70 && summary.lateRate < 35
+        ? "watch"
+        : "risk";
+  return summary;
+}
+
+function studentAttendanceWeeks(lessons, referenceNow) {
+  const now = new Date(referenceNow);
+  return Array.from({ length: 8 }, (_, index) => {
+    const offset = 7 - index,
+      end = new Date(now),
+      start = new Date(now);
+    end.setDate(end.getDate() - offset * 7);
+    end.setHours(23, 59, 59, 999);
+    start.setDate(end.getDate() - 6);
+    start.setHours(0, 0, 0, 0);
+    const items = lessons.filter((lesson) => {
+      const date = new Date(lesson.startsAt);
+      return date >= start && date <= end;
+    });
+    const summary = studentLessonSummary(items);
+    return {
+      key: start.toISOString(),
+      label: start.toLocaleDateString("lv-LV", {
+        day: "2-digit",
+        month: "short",
+      }),
+      percentage: summary.total ? summary.percentage : 0,
+    };
+  });
+}
+
+function studentDonut(summary) {
+  const total = Math.max(1, summary.total),
+    present = (summary.present / total) * 100,
+    late = (summary.late / total) * 100,
+    absent = (summary.absent / total) * 100;
+  return `conic-gradient(var(--green) 0 ${present}%,var(--amber) ${present}% ${present + late}%,var(--danger) ${present + late}% ${present + late + absent}%,var(--blue) ${present + late + absent}% 100%)`;
 }
 function EmptyAttendance({ canManage, open }) {
   return (
@@ -823,7 +1041,15 @@ function patchStudent(data, membershipId, status) {
               ...(student.record || {}),
               studentMembershipId: membershipId,
               status,
-              lessonStatuses: Array.from({length:data.selected.lessonCount||1},(_,index)=>({period:data.selected.timetableLessons?.[index]?.period||index+1,status})),
+              lessonStatuses: Array.from(
+                { length: data.selected.lessonCount || 1 },
+                (_, index) => ({
+                  period:
+                    data.selected.timetableLessons?.[index]?.period ||
+                    index + 1,
+                  status,
+                }),
+              ),
               checkedInAt: ["present", "late"].includes(status)
                 ? new Date().toISOString()
                 : null,
@@ -833,13 +1059,46 @@ function patchStudent(data, membershipId, status) {
     ),
     records = students.map((student) => student.record).filter(Boolean),
     summary = {
-      total: records.reduce((sum,r)=>sum+(r.lessonStatuses?.length||1),0),
-      present: records.reduce((sum,r)=>sum+(r.lessonStatuses||[{status:r.status}]).filter(item=>item.status==="present").length,0),
-      late: records.reduce((sum,r)=>sum+(r.lessonStatuses||[{status:r.status}]).filter(item=>item.status==="late").length,0),
-      absent: records.reduce((sum,r)=>sum+(r.lessonStatuses||[{status:r.status}]).filter(item=>item.status==="absent").length,0),
-      excused: records.reduce((sum,r)=>sum+(r.lessonStatuses||[{status:r.status}]).filter(item=>item.status==="excused").length,0),
-      students:records.length,
-      studentsAttended:records.filter(r=>["present","late"].includes(r.status)).length,
+      total: records.reduce(
+        (sum, r) => sum + (r.lessonStatuses?.length || 1),
+        0,
+      ),
+      present: records.reduce(
+        (sum, r) =>
+          sum +
+          (r.lessonStatuses || [{ status: r.status }]).filter(
+            (item) => item.status === "present",
+          ).length,
+        0,
+      ),
+      late: records.reduce(
+        (sum, r) =>
+          sum +
+          (r.lessonStatuses || [{ status: r.status }]).filter(
+            (item) => item.status === "late",
+          ).length,
+        0,
+      ),
+      absent: records.reduce(
+        (sum, r) =>
+          sum +
+          (r.lessonStatuses || [{ status: r.status }]).filter(
+            (item) => item.status === "absent",
+          ).length,
+        0,
+      ),
+      excused: records.reduce(
+        (sum, r) =>
+          sum +
+          (r.lessonStatuses || [{ status: r.status }]).filter(
+            (item) => item.status === "excused",
+          ).length,
+        0,
+      ),
+      students: records.length,
+      studentsAttended: records.filter((r) =>
+        ["present", "late"].includes(r.status),
+      ).length,
     };
   summary.attended = summary.present + summary.late;
   summary.percentage = summary.total

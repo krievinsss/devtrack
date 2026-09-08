@@ -508,6 +508,74 @@ export const attendanceRecords = pgTable(
   ],
 );
 
+export const journalCourses = pgTable(
+  "journal_courses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    schoolId: text("school_id")
+      .notNull()
+      .references(() => schools.id, { onDelete: "cascade" }),
+    groupId: text("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    teacherMembershipId: uuid("teacher_membership_id").references(
+      () => schoolMemberships.id,
+      { onDelete: "set null" },
+    ),
+    subject: varchar("subject", { length: 180 }).notNull(),
+    academicYear: varchar("academic_year", { length: 20 }),
+    active: boolean("active").default(true).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("journal_courses_group_subject_unique").on(
+      table.groupId,
+      sql`lower(${table.subject})`,
+    ),
+    index("journal_courses_school_idx").on(table.schoolId, table.active),
+    index("journal_courses_teacher_idx").on(table.teacherMembershipId),
+  ],
+);
+
+export const lessonPlanItems = pgTable(
+  "lesson_plan_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => journalCourses.id, { onDelete: "cascade" }),
+    sequence: integer("sequence").notNull(),
+    topic: varchar("topic", { length: 300 }).notNull(),
+    outcome: text("outcome").default("").notNull(),
+    type: varchar("type", { length: 30 }).default("lesson").notNull(),
+    plannedDate: varchar("planned_date", { length: 10 }),
+    timetablePeriod: integer("timetable_period"),
+    notes: text("notes").default("").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("lesson_plan_items_course_sequence_unique").on(
+      table.courseId,
+      table.sequence,
+    ),
+    index("lesson_plan_items_course_date_idx").on(
+      table.courseId,
+      table.plannedDate,
+    ),
+    check("lesson_plan_items_sequence_check", sql`${table.sequence} > 0`),
+    check(
+      "lesson_plan_items_type_check",
+      sql`${table.type} in ('lesson','practical','formative','summative','final')`,
+    ),
+    check(
+      "lesson_plan_items_period_check",
+      sql`${table.timetablePeriod} is null or ${table.timetablePeriod} between 1 and 20`,
+    ),
+  ],
+);
+
 export const auditLogs = pgTable(
   "audit_logs",
   {

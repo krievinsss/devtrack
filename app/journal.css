@@ -1,0 +1,691 @@
+.teacher-journal,
+.lesson-planner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.journal-toolbar {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+}
+.journal-toolbar label > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.journal-toolbar select {
+  height: 40px;
+  min-width: 180px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+}
+.journal-course-select {
+  flex: 1;
+}
+.journal-course-select select {
+  width: min(560px, 100%);
+}
+.journal-toolbar-actions {
+  margin-left: auto;
+}
+.journal-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.journal-summary > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 15px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.journal-summary svg {
+  color: var(--primary);
+}
+.journal-summary b,
+.journal-summary span {
+  display: block;
+}
+.journal-summary b {
+  font-size: 16px;
+}
+.journal-summary span {
+  color: var(--muted);
+  font-size: 8px;
+}
+.journal-sheet-card {
+  overflow: hidden;
+}
+.journal-sheet-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 17px 19px;
+  border-bottom: 1px solid var(--border);
+}
+.journal-sheet-card h2 {
+  margin: 4px 0;
+  font-size: 17px;
+}
+.journal-sheet-card header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+.journal-sheet-card header label {
+  position: relative;
+}
+.journal-sheet-card header label svg {
+  position: absolute;
+  left: 10px;
+  top: 11px;
+  color: var(--muted);
+}
+.journal-sheet-card header input {
+  width: 190px;
+  height: 37px;
+  padding: 0 10px 0 32px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+}
+.journal-scroll {
+  overflow: auto;
+  min-height: 440px;
+}
+.journal-scroll table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.journal-scroll th,
+.journal-scroll td {
+  height: 45px;
+  padding: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  text-align: center;
+}
+.journal-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 74px;
+  background: var(--bg);
+}
+.journal-number {
+  position: sticky !important;
+  left: 0;
+  z-index: 4 !important;
+  width: 42px;
+  min-width: 42px;
+  color: var(--muted);
+  font-size: 8px;
+}
+.journal-student-col {
+  position: sticky !important;
+  left: 42px;
+  z-index: 4 !important;
+  width: 240px;
+  min-width: 240px;
+  text-align: left !important;
+  box-shadow: 4px 0 7px rgba(2, 6, 23, 0.04);
+}
+.journal-scroll thead .journal-student-col {
+  padding-left: 14px;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+.journal-column-head {
+  width: 50px;
+  min-width: 50px;
+  cursor: pointer;
+}
+.journal-column-head:hover {
+  background: color-mix(in srgb, var(--primary) 6%, var(--bg));
+}
+.journal-column-head span,
+.journal-column-head b,
+.journal-column-head small {
+  display: block;
+}
+.journal-column-head span {
+  font-size: 7px;
+  writing-mode: vertical-rl;
+  margin: auto;
+  transform: rotate(180deg);
+}
+.journal-column-head b {
+  margin-top: 3px;
+  font-size: 10px;
+}
+.journal-column-head small {
+  font-size: 6px;
+  color: var(--muted);
+}
+.journal-column-head.formative {
+  box-shadow: inset 0 3px var(--primary);
+}
+.journal-column-head.summative {
+  box-shadow: inset 0 3px var(--amber);
+}
+.journal-column-head.final {
+  box-shadow: inset 0 3px var(--blue);
+}
+.journal-student-col button {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.journal-student-col button > span {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 8px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 9%, var(--card));
+  font-size: 7px;
+  font-weight: 900;
+}
+.journal-student-col button b {
+  font-size: 9px;
+}
+.journal-cell {
+  width: 50px;
+  min-width: 50px;
+  cursor: pointer;
+}
+.journal-cell:hover {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.journal-cell.formative {
+  background: color-mix(in srgb, var(--primary) 3%, var(--card));
+}
+.journal-cell.summative {
+  background: color-mix(in srgb, var(--amber) 3%, var(--card));
+}
+.journal-grade {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  margin: auto;
+  border-radius: 7px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+}
+.journal-absence {
+  color: var(--danger);
+  font-size: 13px;
+}
+.journal-excused {
+  color: var(--blue);
+  font-size: 13px;
+}
+.journal-late {
+  color: var(--amber);
+  font-size: 11px;
+}
+.journal-late small {
+  margin-left: 2px;
+  font-size: 6px;
+}
+.journal-present {
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--green);
+  opacity: 0.65;
+}
+.journal-future-dot {
+  color: var(--muted);
+  font-size: 16px;
+}
+.journal-no-columns,
+.journal-empty {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+  min-height: 400px;
+  padding: 35px;
+  color: var(--muted);
+}
+.journal-no-columns h3,
+.journal-empty h2 {
+  margin: 12px 0 5px;
+  color: var(--text);
+}
+.journal-no-columns p,
+.journal-empty p {
+  margin: 0 0 14px;
+  font-size: 9px;
+}
+.journal-inspector {
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 8000;
+  width: min(430px, 100%);
+  height: 100%;
+  overflow: auto;
+  background: var(--card);
+  border-left: 1px solid var(--border);
+  box-shadow: -20px 0 70px rgba(0, 0, 0, 0.2);
+}
+.journal-inspector > header {
+  display: flex;
+  gap: 12px;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.journal-inspector > header > button {
+  width: 33px;
+  height: 33px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+}
+.journal-inspector h2 {
+  margin: 4px 0;
+  font-size: 17px;
+}
+.journal-inspector header p,
+.journal-inspector section p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.6;
+}
+.journal-inspector > section {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.journal-inspector section h3 {
+  margin: 6px 0;
+  font-size: 13px;
+}
+.journal-inspector section em {
+  display: inline-flex;
+  margin-top: 9px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 7px;
+  font-style: normal;
+  text-transform: uppercase;
+}
+.journal-inspector-results b,
+.journal-inspector-results span {
+  display: block;
+}
+.journal-inspector-results b {
+  font-size: 26px;
+}
+.journal-inspector-results span {
+  color: var(--muted);
+  font-size: 8px;
+}
+.journal-student-inspector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  padding: 16px;
+  background: var(--bg);
+}
+.journal-student-inspector div {
+  padding: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+.journal-student-inspector b,
+.journal-student-inspector span {
+  display: block;
+}
+.journal-student-inspector b {
+  font-size: 17px;
+}
+.journal-student-inspector span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 7px;
+}
+.lesson-planner {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  align-items: start;
+}
+.lesson-plan-sidebar {
+  overflow: hidden;
+}
+.lesson-plan-sidebar > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  border-bottom: 1px solid var(--border);
+}
+.lesson-plan-sidebar h3 {
+  margin: 3px 0 0;
+  font-size: 14px;
+}
+.lesson-plan-sidebar header button {
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+}
+.lesson-plan-sidebar > div {
+  padding: 7px;
+}
+.lesson-plan-sidebar > div > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.lesson-plan-sidebar > div > button.active {
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+  background: color-mix(in srgb, var(--primary) 5%, var(--card));
+}
+.lesson-plan-sidebar button svg {
+  color: var(--primary);
+}
+.lesson-plan-sidebar b,
+.lesson-plan-sidebar small {
+  display: block;
+}
+.lesson-plan-sidebar b {
+  font-size: 9px;
+}
+.lesson-plan-sidebar small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 7px;
+}
+.lesson-plan-main {
+  min-width: 0;
+  overflow: hidden;
+}
+.lesson-plan-main > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.lesson-plan-main h2 {
+  margin: 4px 0;
+  font-size: 18px;
+}
+.lesson-plan-main header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+.lesson-plan-main > header > div:last-child {
+  display: flex;
+  gap: 7px;
+}
+.lesson-plan-notice {
+  margin: 12px 16px 0;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--green) 25%, var(--border));
+  border-radius: 8px;
+  color: var(--green);
+  font-size: 8px;
+}
+.lesson-plan-table {
+  overflow: auto;
+}
+.lesson-plan-head,
+.lesson-plan-row {
+  display: grid;
+  grid-template-columns: 44px minmax(300px, 1fr) 110px 130px 70px 36px;
+  min-width: 760px;
+}
+.lesson-plan-head {
+  padding: 8px 10px;
+  color: var(--muted);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 7px;
+  text-transform: uppercase;
+}
+.lesson-plan-row {
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.lesson-plan-row > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 8px;
+}
+.lesson-plan-row > div {
+  padding-right: 8px;
+}
+.lesson-plan-row input,
+.lesson-plan-row textarea,
+.lesson-plan-row select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 8px;
+  outline: none;
+}
+.lesson-plan-row input,
+.lesson-plan-row select {
+  height: 34px;
+  padding: 0 8px;
+}
+.lesson-plan-row textarea {
+  height: 34px;
+  margin-top: 4px;
+  padding: 7px 8px;
+  resize: vertical;
+}
+.lesson-plan-row > select,
+.lesson-plan-row > input {
+  margin-right: 7px;
+}
+.lesson-plan-row > button {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+}
+.lesson-add-row {
+  width: 100%;
+  padding: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 8px;
+  font-weight: 850;
+  cursor: pointer;
+}
+.lesson-plan-empty {
+  min-height: 430px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+  padding: 30px;
+}
+.lesson-plan-empty h2 {
+  margin: 12px 0 5px;
+  font-size: 17px;
+}
+.lesson-plan-empty p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.journal-create-modal,
+.journal-bulk-modal {
+  width: min(520px, 100%);
+  padding: 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
+}
+.journal-create-modal > header,
+.journal-bulk-modal > header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+.journal-create-modal h2,
+.journal-bulk-modal h2 {
+  margin: 4px 0;
+  font-size: 18px;
+}
+.journal-create-modal header button,
+.journal-bulk-modal header button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.journal-create-modal label {
+  display: block;
+  margin-top: 10px;
+}
+.journal-create-modal label span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+}
+.journal-create-modal input,
+.journal-create-modal select {
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+.journal-create-modal footer,
+.journal-bulk-modal footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 16px;
+}
+.journal-bulk-modal {
+  width: min(680px, 100%);
+}
+.journal-bulk-modal header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+.journal-bulk-modal > textarea {
+  width: 100%;
+  min-height: 260px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font: 11px/1.5 monospace;
+  resize: vertical;
+}
+@media (max-width: 900px) {
+  .lesson-planner {
+    grid-template-columns: 1fr;
+  }
+  .discipline-chart-grid {
+    grid-template-columns: 1fr;
+  }
+  .journal-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 650px) {
+  .journal-toolbar,
+  .journal-sheet-card > header,
+  .lesson-plan-main > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .journal-toolbar-actions {
+    margin-left: 0;
+  }
+  .journal-toolbar select {
+    width: 100%;
+  }
+  .journal-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .journal-sheet-card header label,
+  .journal-sheet-card header input {
+    width: 100%;
+  }
+  .lesson-plan-main > header > div:last-child {
+    flex-wrap: wrap;
+  }
+}

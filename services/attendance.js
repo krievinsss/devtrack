@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { database, withTransactionDatabase } from "@/db/client";
 import { defaultSchoolId } from "@/db/directory";
 import {
@@ -10,6 +10,7 @@ import {
   desks,
   groupMemberships,
   groups,
+  journalCourses,
   schoolMemberships,
   users,
 } from "@/db/schema";
@@ -208,6 +209,79 @@ export async function getDisciplineAttendance(user) {
   });
 }
 
+export async function getJournalLessonColumns(user) {
+  if (
+    !["teacher", "admin"].includes(user.role) &&
+    user.platformRole !== "super_admin"
+  )
+    throw new AttendanceAccessError();
+  const db = database();
+  let sessions = await db
+    .select()
+    .from(attendanceSessions)
+    .where(
+      and(
+        eq(attendanceSessions.schoolId, schoolFor(user)),
+        ne(attendanceSessions.status, "cancelled"),
+      ),
+    )
+    .orderBy(asc(attendanceSessions.startsAt));
+  if (!isSchoolWide(user))
+    sessions = sessions.filter((session) =>
+      canAccessGroup(user, session.groupId),
+    );
+  if (!sessions.length) return [];
+  const sessionIds = sessions.map((session) => session.id);
+  const rows = await db
+    .select({
+      sessionId: attendanceRecords.sessionId,
+      studentId: schoolMemberships.userId,
+      status: attendanceRecords.status,
+      lessonStatuses: attendanceRecords.lessonStatuses,
+      checkedInAt: attendanceRecords.checkedInAt,
+    })
+    .from(attendanceRecords)
+    .innerJoin(
+      schoolMemberships,
+      eq(schoolMemberships.id, attendanceRecords.studentMembershipId),
+    )
+    .where(inArray(attendanceRecords.sessionId, sessionIds));
+  return sessions.flatMap((session) =>
+    sessionLessons(session).map((lesson, index) => ({
+      id: `${session.id}:${lesson.id || lesson.period || index}`,
+      sessionId: session.id,
+      groupId: session.groupId,
+      subject: session.title,
+      startsAt: iso(lesson.startsAt || session.startsAt),
+      endsAt: iso(lesson.endsAt || session.endsAt),
+      period: lesson.period || null,
+      sessionStatus: session.status,
+      results: rows
+        .filter((row) => row.sessionId === session.id)
+        .map((row) => {
+          const lessonStatus =
+            (row.lessonStatuses || []).find(
+              (item) =>
+                (item.lessonId && item.lessonId === lesson.id) ||
+                (item.period && Number(item.period) === Number(lesson.period)),
+            ) || (row.lessonStatuses || [])[index];
+          const status = lessonStatus?.status || row.status;
+          return {
+            studentId: row.studentId,
+            status,
+            minutesLate:
+              status === "late" && row.checkedInAt
+                ? attendanceMinutesLate({
+                    startsAt: lesson.startsAt || session.startsAt,
+                    checkedInAt: row.checkedInAt,
+                  })
+                : 0,
+          };
+        }),
+    })),
+  );
+}
+
 async function studentCheckInRequirement(db, user) {
   const activeRows = await db
     .select({ session: attendanceSessions, classroomName: classrooms.name })
@@ -338,6 +412,15 @@ export async function openAttendanceSession(user, input) {
           lateAfterMinutes: input.lateAfterMinutes,
         })
         .returning();
+      await tx
+        .insert(journalCourses)
+        .values({
+          schoolId: schoolFor(user),
+          groupId: input.groupId,
+          teacherMembershipId: user.membershipId || null,
+          subject: input.title || "Lesson",
+        })
+        .onConflictDoNothing();
       await audit(tx, user, "attendance.session_opened", created.id, {
         classroomId: created.classroomId,
         groupId: created.groupId,

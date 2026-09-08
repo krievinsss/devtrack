@@ -15,6 +15,6 @@ export default function QrPrintSheet({classroom}){
 
 function QrCanvas({value,ready}){
   const ref=useRef(null);
-  useEffect(()=>{if(!ready||!ref.current||!window.QRCode)return;ref.current.innerHTML='';new window.QRCode(ref.current,{text:`${window.location.origin}${value}`,width:256,height:256,colorDark:'#101828',colorLight:'#ffffff',correctLevel:window.QRCode.CorrectLevel.M})},[ready,value]);
+  useEffect(()=>{if(!ready||!ref.current||!window.QRCode)return;ref.current.innerHTML='';new window.QRCode(ref.current,{text:`${window.location.origin}${value}`,width:192,height:192,colorDark:'#101828',colorLight:'#ffffff',correctLevel:window.QRCode.CorrectLevel.L})},[ready,value]);
   return <div className={`qr-code-box ${ready?'ready':''}`} ref={ref}>{!ready&&<QrCode size={28}/>}</div>;
 }

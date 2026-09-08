@@ -1,0 +1,6 @@
+.qr-label{padding:2.2mm;justify-content:flex-start;overflow:hidden}
+.qr-label-name{height:4mm;flex:none}
+.qr-code-box{box-sizing:border-box;width:20mm;height:20mm;min-width:20mm;min-height:20mm;margin:1.5mm auto 1mm;padding:1.4mm;overflow:hidden;flex:none;background:#fff}
+.qr-code-box canvas,.qr-code-box img,.qr-code-box svg{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain}
+.qr-label p{line-height:2.8mm;min-height:2.8mm;margin:0}
+@media print{@page{size:A4 portrait;margin:0}.qr-sheet{padding:10mm}.qr-sheet-grid{grid-template-columns:repeat(5,34mm);grid-auto-rows:38mm;gap:4mm}.qr-code-box{width:20mm;height:20mm;min-width:20mm;min-height:20mm}}

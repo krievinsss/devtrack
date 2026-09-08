@@ -23,6 +23,9 @@ import './access-manager.css';
 import './classrooms.css';
 import './attendance.css';
 import './check-in.css';
+import './qr-print-fix.css';
+import './timetable-attendance.css';
+import './attendance-stats.css';
 
 export const dynamic='force-dynamic';
 export const revalidate=0;

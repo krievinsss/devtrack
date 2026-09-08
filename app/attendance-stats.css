@@ -1,0 +1,7 @@
+.attendance-cumulative{color:var(--primary)!important;font-weight:750}
+.student-period-statuses{display:flex!important;gap:4px;flex-wrap:wrap;margin-top:6px;overflow:visible!important;white-space:normal!important}
+.student-period-statuses i{font-style:normal;font-size:7px;font-weight:800;text-transform:uppercase;border:1px solid var(--border);border-radius:999px;padding:3px 5px;color:var(--muted)}
+.student-period-statuses i.present{color:var(--green);border-color:color-mix(in srgb,var(--green) 28%,var(--border))}
+.student-period-statuses i.late{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 28%,var(--border))}
+.student-period-statuses i.absent{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 28%,var(--border))}
+.student-period-statuses i.excused{color:var(--blue);border-color:color-mix(in srgb,var(--blue) 28%,var(--border))}

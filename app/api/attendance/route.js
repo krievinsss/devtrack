@@ -6,6 +6,7 @@ import {
   AttendanceNotFoundError,
   cancelAttendanceSession,
   checkInWithDesk,
+  checkInWithDeskId,
   closeAttendanceSession,
   getAttendanceDashboard,
   getStudentAttendance,
@@ -44,12 +45,17 @@ const markSchema = z.object({
   note: z.string().trim().max(300).default(""),
 });
 const checkInSchema = z.object({ action: z.literal("checkIn"), token: id });
+const deskCheckInSchema = z.object({
+  action: z.literal("checkInDesk"),
+  deskId: id,
+});
 const schema = z.discriminatedUnion("action", [
   openSchema,
   closeSchema,
   cancelSchema,
   markSchema,
   checkInSchema,
+  deskCheckInSchema,
 ]);
 
 export async function GET(request) {
@@ -74,6 +80,8 @@ export async function POST(request) {
     const input = schema.parse(await request.json());
     if (input.action === "checkIn")
       return ok({ checkIn: await checkInWithDesk(auth.user, input.token) });
+    if (input.action === "checkInDesk")
+      return ok({ checkIn: await checkInWithDeskId(auth.user, input.deskId) });
     if (!["teacher", "admin"].includes(auth.user.role))
       throw new AttendanceAccessError();
     if (input.action === "open")

@@ -131,7 +131,91 @@ export async function getStudentAttendance(user, { limit = 100 } = {}) {
       deskLabel: row.deskLabel,
     }),
   );
-  return { records, summary: attendanceSummary(records) };
+  const checkInRequired = await studentCheckInRequirement(db, user);
+  return { records, summary: attendanceSummary(records), checkInRequired };
+}
+
+async function studentCheckInRequirement(db, user) {
+  const activeRows = await db
+    .select({ session: attendanceSessions, classroomName: classrooms.name })
+    .from(attendanceSessions)
+    .innerJoin(
+      groupMemberships,
+      and(
+        eq(groupMemberships.groupId, attendanceSessions.groupId),
+        eq(groupMemberships.membershipId, user.membershipId),
+        eq(groupMemberships.relation, "student"),
+      ),
+    )
+    .innerJoin(classrooms, eq(classrooms.id, attendanceSessions.classroomId))
+    .where(
+      and(
+        eq(attendanceSessions.schoolId, schoolFor(user)),
+        eq(attendanceSessions.status, "open"),
+      ),
+    )
+    .orderBy(desc(attendanceSessions.openedAt))
+    .limit(1);
+  const active = activeRows[0];
+  if (!active) return null;
+
+  const ownRecord = await db
+    .select({ id: attendanceRecords.id })
+    .from(attendanceRecords)
+    .where(
+      and(
+        eq(attendanceRecords.sessionId, active.session.id),
+        eq(attendanceRecords.studentMembershipId, user.membershipId),
+      ),
+    )
+    .limit(1);
+  if (ownRecord.length) return null;
+
+  const [roomRows, deskRows, occupiedRows] = await Promise.all([
+    db
+      .select({
+        canvasWidth: classrooms.canvasWidth,
+        canvasHeight: classrooms.canvasHeight,
+      })
+      .from(classrooms)
+      .where(eq(classrooms.id, active.session.classroomId))
+      .limit(1),
+    db
+      .select({
+        id: desks.id,
+        code: desks.code,
+        label: desks.label,
+        x: desks.x,
+        y: desks.y,
+        width: desks.width,
+        height: desks.height,
+      })
+      .from(desks)
+      .where(eq(desks.classroomId, active.session.classroomId))
+      .orderBy(asc(desks.code)),
+    db
+      .select({ deskId: attendanceRecords.deskId })
+      .from(attendanceRecords)
+      .where(eq(attendanceRecords.sessionId, active.session.id)),
+  ]);
+  const occupied = new Set(
+    occupiedRows.map((row) => row.deskId).filter(Boolean),
+  );
+  return {
+    session: sessionDto(active.session, {
+      classroomName: active.classroomName,
+    }),
+    classroom: {
+      id: active.session.classroomId,
+      name: active.classroomName,
+      canvasWidth: roomRows[0]?.canvasWidth || 1200,
+      canvasHeight: roomRows[0]?.canvasHeight || 720,
+    },
+    desks: deskRows.map((desk) => ({
+      ...desk,
+      occupied: occupied.has(desk.id),
+    })),
+  };
 }
 
 export async function openAttendanceSession(user, input) {
@@ -361,6 +445,36 @@ export async function checkInWithDesk(user, token) {
   if (!desk || !desk.classroomActive)
     throw new AttendanceNotFoundError("This desk code is unavailable");
   if (desk.schoolId !== schoolFor(user)) throw new AttendanceAccessError();
+  return checkInAtDesk(user, desk);
+}
+
+export async function checkInWithDeskId(user, deskId) {
+  if (user.role !== "student" || !user.membershipId)
+    throw new AttendanceAccessError(
+      "Sign in with a student account to check in",
+    );
+  const rows = await database()
+    .select({
+      deskId: desks.id,
+      deskCode: desks.code,
+      deskLabel: desks.label,
+      classroomId: classrooms.id,
+      classroomName: classrooms.name,
+      classroomActive: classrooms.active,
+      schoolId: classrooms.schoolId,
+    })
+    .from(desks)
+    .innerJoin(classrooms, eq(classrooms.id, desks.classroomId))
+    .where(eq(desks.id, deskId))
+    .limit(1);
+  const desk = rows[0];
+  if (!desk || !desk.classroomActive)
+    throw new AttendanceNotFoundError("This desk is unavailable");
+  if (desk.schoolId !== schoolFor(user)) throw new AttendanceAccessError();
+  return checkInAtDesk(user, desk);
+}
+
+function checkInAtDesk(user, desk) {
   return withTransactionDatabase((db) =>
     db.transaction(async (tx) => {
       const sessions = await tx
@@ -507,34 +621,50 @@ async function hydrateSession(db, session, withStudents) {
       .where(eq(attendanceRecords.sessionId, session.id))
       .orderBy(asc(users.firstName), asc(users.lastName)),
   ]);
-  let studentRows = [], historicalRecords = [];
+  let studentRows = [],
+    historicalRecords = [];
   if (withStudents) {
-    [studentRows,historicalRecords] = await Promise.all([db
-      .select({
-        membershipId: schoolMemberships.id,
-        userId: users.id,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        email: users.email,
-      })
-      .from(groupMemberships)
-      .innerJoin(
-        schoolMemberships,
-        eq(schoolMemberships.id, groupMemberships.membershipId),
-      )
-      .innerJoin(users, eq(users.id, schoolMemberships.userId))
-      .where(
-        and(
-          eq(groupMemberships.groupId, session.groupId),
-          eq(groupMemberships.relation, "student"),
-          eq(schoolMemberships.status, "active"),
-          eq(users.active, true),
+    [studentRows, historicalRecords] = await Promise.all([
+      db
+        .select({
+          membershipId: schoolMemberships.id,
+          userId: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        })
+        .from(groupMemberships)
+        .innerJoin(
+          schoolMemberships,
+          eq(schoolMemberships.id, groupMemberships.membershipId),
+        )
+        .innerJoin(users, eq(users.id, schoolMemberships.userId))
+        .where(
+          and(
+            eq(groupMemberships.groupId, session.groupId),
+            eq(groupMemberships.relation, "student"),
+            eq(schoolMemberships.status, "active"),
+            eq(users.active, true),
+          ),
+        )
+        .orderBy(asc(users.firstName), asc(users.lastName)),
+      db
+        .select({
+          studentMembershipId: attendanceRecords.studentMembershipId,
+          status: attendanceRecords.status,
+          lessonStatuses: attendanceRecords.lessonStatuses,
+        })
+        .from(attendanceRecords)
+        .innerJoin(
+          attendanceSessions,
+          eq(attendanceSessions.id, attendanceRecords.sessionId),
+        )
+        .where(
+          and(
+            eq(attendanceSessions.groupId, session.groupId),
+            ne(attendanceSessions.status, "cancelled"),
+          ),
         ),
-      )
-      .orderBy(asc(users.firstName), asc(users.lastName)),
-    db.select({studentMembershipId:attendanceRecords.studentMembershipId,status:attendanceRecords.status,lessonStatuses:attendanceRecords.lessonStatuses})
-      .from(attendanceRecords).innerJoin(attendanceSessions,eq(attendanceSessions.id,attendanceRecords.sessionId))
-      .where(and(eq(attendanceSessions.groupId,session.groupId),ne(attendanceSessions.status,"cancelled")))
     ]);
   }
   const mapped = records.map((row) => ({
@@ -557,8 +687,14 @@ async function hydrateSession(db, session, withStudents) {
     summary: attendanceSummary(mapped),
     records: mapped,
     students: studentRows.map((student) => {
-      const history=historicalRecords.filter(record=>record.studentMembershipId===student.membershipId);
-      return {...student,record:byMembership.get(student.membershipId)||null,attendanceStats:attendanceSummary(history)};
+      const history = historicalRecords.filter(
+        (record) => record.studentMembershipId === student.membershipId,
+      );
+      return {
+        ...student,
+        record: byMembership.get(student.membershipId) || null,
+        attendanceStats: attendanceSummary(history),
+      };
     }),
   };
 }
@@ -613,18 +749,16 @@ function sessionLessons(session) {
       ];
 }
 function normalizeTimetableLessons(value, start, end) {
-  return (Array.isArray(value) ? value : [])
-    .slice(0, 12)
-    .map((item) => ({
-      id: String(item.id || ""),
-      period: Number(item.period) || null,
-      date: String(item.date || ""),
-      start: String(item.start || ""),
-      end: String(item.end || ""),
-      startsAt: iso(item.startsAt) || start.toISOString(),
-      endsAt: iso(item.endsAt) || end.toISOString(),
-      subject: String(item.subject || "Lesson"),
-    }));
+  return (Array.isArray(value) ? value : []).slice(0, 12).map((item) => ({
+    id: String(item.id || ""),
+    period: Number(item.period) || null,
+    date: String(item.date || ""),
+    start: String(item.start || ""),
+    end: String(item.end || ""),
+    startsAt: iso(item.startsAt) || start.toISOString(),
+    endsAt: iso(item.endsAt) || end.toISOString(),
+    subject: String(item.subject || "Lesson"),
+  }));
 }
 function isSchoolWide(user) {
   return user?.role === "admin" || user?.platformRole === "super_admin";
@@ -647,14 +781,12 @@ function iso(value) {
       : null;
 }
 async function audit(db, user, action, entityId, metadata) {
-  await db
-    .insert(auditLogs)
-    .values({
-      schoolId: schoolFor(user),
-      actorUserId: user.id,
-      action,
-      entityType: "attendance_session",
-      entityId,
-      metadata,
-    });
+  await db.insert(auditLogs).values({
+    schoolId: schoolFor(user),
+    actorUserId: user.id,
+    action,
+    entityType: "attendance_session",
+    entityId,
+    metadata,
+  });
 }

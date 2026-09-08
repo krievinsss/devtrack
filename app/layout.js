@@ -1,36 +1,44 @@
-import './globals.css';
-import './admin-ui.css';
-import './github-loader.css';
-import './github-repository.css';
-import './project-ux.css';
-import './gamification.css';
-import './achievements-profile.css';
-import './gamification-wow.css';
-import './music.css';
-import './music-realtime.css';
-import './music-quota.css';
-import './spotify-live.css';
-import './stackdev.css';
-import './assessment-manager.css';
-import './groups-manager.css';
-import './teacher-projects.css';
-import './teacher-review.css';
-import './assignment-hub.css';
-import './notifications.css';
-import './teacher-hub.css';
-import './timetable.css';
-import './access-manager.css';
-import './classrooms.css';
-import './attendance.css';
-import './check-in.css';
-import './qr-print-fix.css';
-import './timetable-attendance.css';
-import './attendance-stats.css';
+import "./globals.css";
+import "./admin-ui.css";
+import "./github-loader.css";
+import "./github-repository.css";
+import "./project-ux.css";
+import "./gamification.css";
+import "./achievements-profile.css";
+import "./gamification-wow.css";
+import "./music.css";
+import "./music-realtime.css";
+import "./music-quota.css";
+import "./spotify-live.css";
+import "./stackdev.css";
+import "./assessment-manager.css";
+import "./groups-manager.css";
+import "./teacher-projects.css";
+import "./teacher-review.css";
+import "./assignment-hub.css";
+import "./notifications.css";
+import "./teacher-hub.css";
+import "./timetable.css";
+import "./access-manager.css";
+import "./classrooms.css";
+import "./attendance.css";
+import "./check-in.css";
+import "./qr-print-fix.css";
+import "./timetable-attendance.css";
+import "./attendance-stats.css";
+import "./student-checkin.css";
 
-export const dynamic='force-dynamic';
-export const revalidate=0;
-export const metadata={title:'DevTrack',description:'More than grades. Real progress.'};
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const metadata = {
+  title: "DevTrack",
+  description: "More than grades. Real progress.",
+};
 
-export default function RootLayout({children}){
-  return <html lang="lv" suppressHydrationWarning><body>{children}</body></html>;
+export default function RootLayout({ children }) {
+  return (
+    <html lang="lv" suppressHydrationWarning>
+      <body>{children}</body>
+    </html>
+  );
 }

@@ -1,0 +1,231 @@
+.student-checkin-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(5, 9, 18, 0.82);
+  backdrop-filter: blur(14px);
+  overflow: auto;
+}
+.student-checkin-modal {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 22px;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.45);
+}
+.student-checkin-modal > header {
+  display: flex;
+  gap: 16px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.student-checkin-icon {
+  width: 50px;
+  height: 50px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary2));
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+.student-checkin-modal h2 {
+  margin: 4px 0 5px;
+  font-size: 23px;
+}
+.student-checkin-modal header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.student-checkin-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--primary) 3%, var(--card));
+}
+.student-checkin-meta span,
+.student-checkin-meta strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  font-size: 9px;
+}
+.student-checkin-meta strong {
+  margin-left: auto;
+  color: var(--green);
+  border-color: color-mix(in srgb, var(--green) 24%, var(--border));
+}
+.student-checkin-error {
+  margin: 14px 24px 0;
+  padding: 10px 12px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, var(--border));
+  border-radius: 10px;
+  font-size: 10px;
+}
+.student-checkin-map-shell {
+  padding: 18px 24px;
+}
+.student-checkin-board {
+  width: 42%;
+  margin: 0 auto 12px;
+  padding: 7px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+.student-checkin-map {
+  position: relative;
+  width: 100%;
+  max-height: 52vh;
+  margin: auto;
+  background:
+    radial-gradient(
+      circle at 50% 10%,
+      color-mix(in srgb, var(--primary) 5%, transparent),
+      transparent 42%
+    ),
+    var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  overflow: hidden;
+}
+.student-checkin-map button {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 42px;
+  min-height: 34px;
+  padding: 4px;
+  border-radius: 8px;
+  transition:
+    transform 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+  background: var(--card);
+  color: var(--text);
+}
+.student-checkin-map button.available {
+  cursor: pointer;
+  border: 1.5px solid color-mix(in srgb, var(--primary) 48%, var(--border));
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+}
+.student-checkin-map button.available:hover {
+  z-index: 2;
+  transform: scale(1.08);
+  border-color: var(--primary);
+  box-shadow: 0 7px 22px color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--primary);
+}
+.student-checkin-map button.occupied {
+  cursor: not-allowed;
+  opacity: 0.42;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 7%, var(--card));
+}
+.student-checkin-map button b {
+  font-size: 9px;
+  line-height: 1;
+}
+.student-checkin-map button small {
+  font-size: 6px;
+  color: var(--muted);
+}
+.student-checkin-modal > footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 24px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+.student-checkin-modal > footer span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 8px;
+}
+.student-checkin-modal > footer i {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--primary);
+}
+.student-checkin-modal > footer i.occupied {
+  background: var(--muted);
+  opacity: 0.5;
+}
+.student-checkin-modal > footer small {
+  margin-left: auto;
+  font-size: 8px;
+}
+.spin {
+  animation: student-checkin-spin 0.8s linear infinite;
+}
+@keyframes student-checkin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 650px) {
+  .student-checkin-gate {
+    padding: 8px;
+  }
+  .student-checkin-modal {
+    max-height: calc(100vh - 16px);
+    border-radius: 16px;
+  }
+  .student-checkin-modal > header {
+    padding: 17px;
+  }
+  .student-checkin-icon {
+    width: 42px;
+    height: 42px;
+  }
+  .student-checkin-modal h2 {
+    font-size: 19px;
+  }
+  .student-checkin-meta {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+  }
+  .student-checkin-meta strong {
+    margin-left: 0;
+  }
+  .student-checkin-map-shell {
+    padding: 14px;
+  }
+  .student-checkin-map button small {
+    display: none;
+  }
+  .student-checkin-modal > footer {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+  .student-checkin-modal > footer small {
+    width: 100%;
+    margin-left: 0;
+  }
+}

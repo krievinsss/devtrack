@@ -25,6 +25,7 @@ import {
   CalendarDays,
   ShieldCheck,
   Armchair,
+  BarChart3,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { avatarAsset } from "@/lib/avatarAssets";
@@ -39,6 +40,7 @@ const teacherNav = [
   ["/stackdev", "StackDev", MessageSquareText, "stackdev"],
   ["/music", "Classroom Music", Music2, "music"],
   ["/attendance", "Attendance", UserRound, "attendance"],
+  ["/analytics", "Discipline & Progress", BarChart3, "attendance"],
   ["/assessments", "Grades", ClipboardCheck, "grades"],
   [
     "/settings/access",

@@ -135,6 +135,79 @@ export async function getStudentAttendance(user, { limit = 100 } = {}) {
   return { records, summary: attendanceSummary(records), checkInRequired };
 }
 
+export async function getDisciplineAttendance(user) {
+  if (
+    !["teacher", "admin"].includes(user.role) &&
+    user.platformRole !== "super_admin"
+  )
+    throw new AttendanceAccessError();
+  const rows = await database()
+    .select({
+      sessionId: attendanceSessions.id,
+      groupId: attendanceSessions.groupId,
+      title: attendanceSessions.title,
+      startsAt: attendanceSessions.startsAt,
+      sessionStatus: attendanceSessions.status,
+      lessonStatuses: attendanceRecords.lessonStatuses,
+      status: attendanceRecords.status,
+      checkedInAt: attendanceRecords.checkedInAt,
+      studentId: schoolMemberships.userId,
+    })
+    .from(attendanceRecords)
+    .innerJoin(
+      attendanceSessions,
+      eq(attendanceSessions.id, attendanceRecords.sessionId),
+    )
+    .innerJoin(
+      schoolMemberships,
+      eq(schoolMemberships.id, attendanceRecords.studentMembershipId),
+    )
+    .where(
+      and(
+        eq(attendanceSessions.schoolId, schoolFor(user)),
+        ne(attendanceSessions.status, "cancelled"),
+      ),
+    )
+    .orderBy(asc(attendanceSessions.startsAt));
+
+  const visible = isSchoolWide(user)
+    ? rows
+    : rows.filter((row) => canAccessGroup(user, row.groupId));
+  return visible.flatMap((row) => {
+    const lessons =
+      Array.isArray(row.lessonStatuses) && row.lessonStatuses.length
+        ? row.lessonStatuses
+        : [
+            {
+              period: null,
+              startsAt: iso(row.startsAt),
+              status: row.status,
+              minutesLate: attendanceMinutesLate({
+                startsAt: row.startsAt,
+                checkedInAt: row.checkedInAt,
+              }),
+            },
+          ];
+    return lessons.map((lesson, index) => ({
+      id: `${row.sessionId}:${lesson.period ?? index}`,
+      sessionId: row.sessionId,
+      studentId: row.studentId,
+      groupId: row.groupId,
+      title: row.title,
+      period: lesson.period ?? null,
+      startsAt: lesson.startsAt || iso(row.startsAt),
+      status: lesson.status || row.status,
+      minutesLate:
+        lesson.status === "late" && row.checkedInAt
+          ? attendanceMinutesLate({
+              startsAt: lesson.startsAt || row.startsAt,
+              checkedInAt: row.checkedInAt,
+            })
+          : 0,
+    }));
+  });
+}
+
 async function studentCheckInRequirement(db, user) {
   const activeRows = await db
     .select({ session: attendanceSessions, classroomName: classrooms.name })

@@ -27,6 +27,7 @@ import "./qr-print-fix.css";
 import "./timetable-attendance.css";
 import "./attendance-stats.css";
 import "./student-checkin.css";
+import "./discipline-analytics.css";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

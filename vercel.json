@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/journal-sync",
       "schedule": "0 4 * * 1-5"
+    },
+    {
+      "path": "/api/cron/attendance-sync",
+      "schedule": "*/5 * * * 1-5"
     }
   ]
 }

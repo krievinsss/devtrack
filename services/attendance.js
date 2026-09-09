@@ -451,6 +451,7 @@ export async function openAttendanceSession(user, input) {
         groupId: created.groupId,
         startsAt: created.startsAt,
         endsAt: created.endsAt,
+        automatic: input.automatic === true,
       });
       return hydrateSession(tx, created, true);
     }),

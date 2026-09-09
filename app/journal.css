@@ -967,6 +967,15 @@
 .journal-records-scroll th:nth-child(5) {
   width: 95px;
 }
+.journal-records-scroll tbody tr {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.journal-records-scroll tbody tr:hover,
+.journal-records-scroll tbody tr:focus {
+  outline: none;
+  background: color-mix(in srgb, var(--primary) 6%, var(--card));
+}
 .journal-muted {
   color: var(--muted);
   font-style: italic;
@@ -984,6 +993,149 @@
   justify-content: flex-end;
   gap: 8px;
   padding-top: 6px;
+}
+.journal-delete-entry {
+  margin-right: auto;
+}
+.journal-bulk-grade-scroll {
+  max-height: 62vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+.journal-bulk-grade-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+}
+.journal-bulk-grade-table th,
+.journal-bulk-grade-table td {
+  min-width: 72px;
+  padding: 7px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+.journal-bulk-grade-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 7px;
+  text-transform: uppercase;
+}
+.journal-bulk-grade-table th:first-child,
+.journal-bulk-grade-table td:first-child {
+  min-width: 155px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+  text-align: left;
+}
+.journal-bulk-grade-table th:first-child {
+  z-index: 3;
+  background: var(--bg);
+}
+.journal-bulk-grade-table th span,
+.journal-bulk-grade-table th small,
+.journal-bulk-grade-table td b,
+.journal-bulk-grade-table td small,
+.journal-bulk-grade-table td strong {
+  display: block;
+}
+.journal-bulk-grade-table th span {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.journal-bulk-grade-table th small,
+.journal-bulk-grade-table td small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 7px;
+}
+.journal-bulk-grade-table td b {
+  font-size: 8px;
+}
+.journal-bulk-grade-table input {
+  width: 54px;
+  height: 30px;
+  margin: auto;
+  padding: 0 4px;
+  text-align: center;
+  font-weight: 800;
+}
+.journal-bulk-grade-table tr.changed td {
+  background: color-mix(in srgb, var(--primary) 5%, var(--card));
+}
+.journal-bulk-count {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 8px;
+}
+.journal-student-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+}
+.journal-student-summary-head b,
+.journal-student-summary-head span {
+  display: block;
+}
+.journal-student-summary-head b {
+  font-size: 10px;
+}
+.journal-student-summary-head span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 8px;
+}
+.journal-student-records {
+  max-height: 58vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+.journal-student-records button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 80px 1fr 54px;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  text-align: left;
+}
+.journal-student-records button:not(:disabled) {
+  cursor: pointer;
+}
+.journal-student-records button:not(:disabled):hover {
+  background: color-mix(in srgb, var(--primary) 6%, var(--card));
+}
+.journal-student-records time,
+.journal-student-records small {
+  color: var(--muted);
+  font-size: 8px;
+}
+.journal-student-records b,
+.journal-student-records small {
+  display: block;
+}
+.journal-student-records b {
+  font-size: 9px;
+}
+.journal-student-records strong {
+  text-align: center;
 }
 .journal-grade-summary {
   display: grid;

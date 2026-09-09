@@ -7,6 +7,7 @@ import {
   replaceLessonPlan,
   saveJournalEntry,
   saveJournalCourse,
+  deleteJournalEntry,
 } from "@/services/journal";
 
 const id = z.string().uuid();
@@ -56,11 +57,18 @@ const entrySchema = z.object({
   attendanceOverrides: z
     .record(z.string(), z.enum(["present", "absent"]))
     .optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+const deleteEntrySchema = z.object({
+  action: z.literal("deleteEntry"),
+  id,
+  courseId: id,
 });
 const schema = z.discriminatedUnion("action", [
   courseSchema,
   planSchema,
   entrySchema,
+  deleteEntrySchema,
 ]);
 
 export async function GET() {
@@ -87,6 +95,8 @@ export async function POST(request) {
       );
     if (input.action === "saveEntry")
       return ok({ entry: await saveJournalEntry(auth.user, input) });
+    if (input.action === "deleteEntry")
+      return ok({ deleted: await deleteJournalEntry(auth.user, input) });
     return ok({
       items: await replaceLessonPlan(auth.user, input.courseId, input.items),
     });

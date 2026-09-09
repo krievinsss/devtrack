@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, CalendarDays, Plus, Save, Settings2, X } from "lucide-react";
+import {
+  BookOpen,
+  CalendarDays,
+  Plus,
+  Save,
+  Settings2,
+  Trash2,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { gradeFromPercent } from "@/lib/grading";
 import {
@@ -152,25 +161,55 @@ export default function TeacherJournal({
       setBusy(false);
     }
   }
-  async function saveGrade(value) {
+  async function deleteEntry(entry) {
+    if (!entry?.entryId || busy) return;
+    if (
+      !window.confirm(
+        "Dzēst šo žurnāla ierakstu? Attendance vēsture netiks dzēsta.",
+      )
+    )
+      return;
     setBusy(true);
     setError("");
     try {
-      const column = value.column,
-        project = projects.find(
-          (item) =>
-            item.studentId === value.student.id &&
-            item.assignmentId === column.assignmentId,
-        );
-      if (!project)
-        throw new Error("This student does not have a linked project.");
-      const url =
+      const response = await fetch("/api/journal", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            action: "deleteEntry",
+            courseId: course.id,
+            id: entry.entryId,
+          }),
+        }),
+        body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error || "Neizdevās dzēst žurnāla ierakstu");
+      setEntries((current) =>
+        current.filter((item) => item.id !== entry.entryId),
+      );
+      setEditor(null);
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function persistGrade(value) {
+    const column = value.column,
+      project = projects.find(
+        (item) =>
+          item.studentId === value.student.id &&
+          item.assignmentId === column.assignmentId,
+      );
+    if (!project)
+      throw new Error(`${value.student.name}: nav piesaistīta projekta.`);
+    const url =
         column.kind === "final"
           ? "/api/assessments"
           : column.kind === "formative"
             ? "/api/formative"
-            : "/api/summative";
-      const payload =
+            : "/api/summative",
+      payload =
         column.kind === "final"
           ? {
               id: value.current?.id,
@@ -188,30 +227,57 @@ export default function TeacherJournal({
               positive: value.positive,
               improvement: value.improvement,
               correctionType: value.correctionType,
-            };
-      const response = await fetch(url, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        }),
-        body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Could not save grade");
-      const result = column.kind === "final" ? body.item : body.result;
-      setAssessments((current) =>
-        current.map((item) =>
-          item.id === column.id
-            ? {
-                ...item,
-                results: [
-                  result,
-                  ...(item.results || []).filter(
-                    (row) => row.studentId !== value.student.id,
-                  ),
-                ],
-              }
-            : item,
-        ),
-      );
+            },
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+      body = await response.json();
+    if (!response.ok) throw new Error(body.error || "Could not save grade");
+    return column.kind === "final" ? body.item : body.result;
+  }
+  function mergeGradeResults(columnId, results) {
+    setAssessments((current) =>
+      current.map((item) =>
+        item.id === columnId
+          ? {
+              ...item,
+              results: [
+                ...results,
+                ...(item.results || []).filter(
+                  (row) =>
+                    !results.some((result) => result.studentId === row.studentId),
+                ),
+              ],
+            }
+          : item,
+      ),
+    );
+  }
+  async function saveGrade(value) {
+    setBusy(true);
+    setError("");
+    try {
+      const result = await persistGrade(value);
+      mergeGradeResults(value.column.id, [result]);
+      setEditor(null);
+      window.dispatchEvent(new Event("devtrack-data-refresh"));
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function saveBulkGrades(column, values) {
+    if (!values.length) return setEditor(null);
+    setBusy(true);
+    setError("");
+    try {
+      const results = [];
+      for (const value of values)
+        results.push(await persistGrade({ ...value, column }));
+      mergeGradeResults(column.id, results);
       setEditor(null);
       window.dispatchEvent(new Event("devtrack-data-refresh"));
     } catch (cause) {
@@ -364,9 +430,11 @@ export default function TeacherJournal({
                         : undefined
                     }
                     title={column.title}
-                    onClick={() =>
-                      column.entryId && setEditor({ mode: "entry", column })
-                    }
+                    onClick={() => {
+                      if (column.entryId)
+                        return setEditor({ mode: "entry", column });
+                      setEditor({ mode: "bulk-grade", column });
+                    }}
                   >
                     <span>{compactDate(column.date)}</span>
                     <b>
@@ -390,7 +458,11 @@ export default function TeacherJournal({
                 <tr key={row.id}>
                   <td className="journal-number">{index + 1}</td>
                   <td className="journal-student-col">
-                    <button>
+                    <button
+                      onClick={() =>
+                        setEditor({ mode: "student", student: row })
+                      }
+                    >
                       <b>{row.name}</b>
                     </button>
                   </td>
@@ -447,7 +519,10 @@ export default function TeacherJournal({
           )}
         </div>
       </section>
-      <LessonRecordsTable records={model.lessonOptions} />
+      <LessonRecordsTable
+        records={model.lessonOptions}
+        open={(column) => setEditor({ mode: "entry", column })}
+      />
       {choosingType && (
         <EntryTypeModal
           close={() => setChoosingType(false)}
@@ -489,6 +564,7 @@ export default function TeacherJournal({
           busy={busy}
           close={() => setEditor(null)}
           save={saveEntry}
+          remove={deleteEntry}
         />
       )}
       {editor?.mode === "grade" && (
@@ -499,6 +575,31 @@ export default function TeacherJournal({
           busy={busy}
           close={() => setEditor(null)}
           save={saveGrade}
+        />
+      )}
+      {editor?.mode === "bulk-grade" && (
+        <BulkGradeModal
+          column={editor.column}
+          students={model.rows}
+          projects={projects}
+          busy={busy}
+          close={() => setEditor(null)}
+          save={saveBulkGrades}
+        />
+      )}
+      {editor?.mode === "student" && (
+        <StudentJournalModal
+          student={editor.student}
+          columns={model.columns}
+          close={() => setEditor(null)}
+          openGrade={(column, current) =>
+            setEditor({
+              mode: "grade",
+              column,
+              student: editor.student,
+              current,
+            })
+          }
         />
       )}
     </div>
@@ -534,7 +635,7 @@ function EntryTypeModal({ close, choose }) {
   );
 }
 
-function LessonRecordsTable({ records = [] }) {
+function LessonRecordsTable({ records = [], open }) {
   return (
     <section className="panel journal-records-card">
       <header>
@@ -557,7 +658,14 @@ function LessonRecordsTable({ records = [] }) {
           </thead>
           <tbody>
             {[...records].reverse().map((record) => (
-              <tr key={record.id}>
+              <tr
+                key={record.id}
+                tabIndex="0"
+                onClick={() => open(record)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") open(record);
+                }}
+              >
                 <td>{displayDate(record.date)}</td>
                 <td>{record.period ? overtimeLabel(record.period) : "—"}</td>
                 <td>
@@ -584,7 +692,15 @@ function LessonRecordsTable({ records = [] }) {
   );
 }
 
-function EntryModal({ title, initial, lessonOptions = [], busy, close, save }) {
+function EntryModal({
+  title,
+  initial,
+  lessonOptions = [],
+  busy,
+  close,
+  save,
+  remove,
+}) {
   const [form, setForm] = useState({
     id: initial.entryId || initial.id,
     type: initial.type === "assessment" ? "assessment" : "lesson",
@@ -701,6 +817,15 @@ function EntryModal({ title, initial, lessonOptions = [], busy, close, save }) {
         </section>
       </div>
       <footer className="journal-editor-footer">
+        {form.id && remove && (
+          <button
+            className="btn danger journal-delete-entry"
+            disabled={busy}
+            onClick={() => remove({ ...initial, ...form, entryId: form.id })}
+          >
+            <Trash2 size={14} /> Dzēst ierakstu
+          </button>
+        )}
         <button className="btn secondary" onClick={close}>
           Atcelt
         </button>
@@ -715,6 +840,204 @@ function EntryModal({ title, initial, lessonOptions = [], busy, close, save }) {
     </Modal>
   );
 }
+function BulkGradeModal({ column, students, projects, busy, close, save }) {
+  const criteria = column.criteria || [];
+  const [rows, setRows] = useState(() =>
+    students.map((student) => {
+      const current = column.results.find(
+        (result) => result.studentId === student.id,
+      );
+      return {
+        student,
+        current,
+        dirty: false,
+        scores: criteria.map((criterion) => ({
+          name: criterion.name,
+          max: Number(criterion.max || 0),
+          score:
+            current?.scores?.find((item) => item.name === criterion.name)
+              ?.score ?? "",
+        })),
+      };
+    }),
+  );
+  const changed = rows.filter((row) => row.dirty);
+  function patchScore(rowIndex, scoreIndex, value) {
+    setRows((current) =>
+      current.map((row, index) =>
+        index !== rowIndex
+          ? row
+          : {
+              ...row,
+              dirty: true,
+              scores: row.scores.map((score, position) =>
+                position === scoreIndex
+                  ? {
+                      ...score,
+                      score:
+                        value === ""
+                          ? ""
+                          : Math.max(
+                              0,
+                              Math.min(score.max, Number(value) || 0),
+                            ),
+                    }
+                  : score,
+              ),
+            },
+      ),
+    );
+  }
+  return (
+    <Modal title={`${column.title} · visas grupas vērtējumi`} close={close} wide>
+      <div className="journal-bulk-grade-scroll">
+        <table className="journal-bulk-grade-table">
+          <thead>
+            <tr>
+              <th>Skolēns</th>
+              {criteria.map((criterion) => (
+                <th key={criterion.name} title={criterion.name}>
+                  <span>{criterion.name}</span>
+                  <small>max {criterion.max}</small>
+                </th>
+              ))}
+              <th>Rezultāts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIndex) => {
+              const hasProject = projects.some(
+                  (project) =>
+                    project.studentId === row.student.id &&
+                    project.assignmentId === column.assignmentId,
+                ),
+                total = row.scores.reduce(
+                  (sum, item) => sum + Number(item.score || 0),
+                  0,
+                ),
+                max = row.scores.reduce(
+                  (sum, item) => sum + Number(item.max || 0),
+                  0,
+                ),
+                percent = max ? Math.round((total / max) * 100) : 0;
+              return (
+                <tr key={row.student.id} className={row.dirty ? "changed" : ""}>
+                  <td>
+                    <b>{row.student.name}</b>
+                    {!hasProject && <small>Nav piesaistīta projekta</small>}
+                  </td>
+                  {row.scores.map((score, scoreIndex) => (
+                    <td key={`${score.name}-${scoreIndex}`}>
+                      <input
+                        type="number"
+                        min="0"
+                        max={score.max}
+                        disabled={!hasProject || busy}
+                        value={score.score}
+                        onChange={(event) =>
+                          patchScore(rowIndex, scoreIndex, event.target.value)
+                        }
+                      />
+                    </td>
+                  ))}
+                  <td>
+                    <strong>
+                      {column.kind === "formative"
+                        ? `${percent}%`
+                        : gradeFromPercent(percent)}
+                    </strong>
+                    <small>
+                      {total}/{max}
+                    </small>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <footer>
+        <span className="journal-bulk-count">
+          {changed.length} izmainīti skolēni
+        </span>
+        <button className="btn secondary" onClick={close}>
+          Atcelt
+        </button>
+        <button
+          className="btn primary"
+          disabled={busy || !changed.length}
+          onClick={() =>
+            save(
+              column,
+              changed.map((row) => ({
+                student: row.student,
+                current: row.current,
+                scores: row.scores.map((score) => ({
+                  ...score,
+                  score: Number(score.score || 0),
+                })),
+                feedback: row.current?.feedback || "",
+                positive: row.current?.positive || "",
+                improvement: row.current?.improvement || "",
+                correctionType: "ordinary",
+              })),
+            )
+          }
+        >
+          <Save size={14} /> {busy ? "Saglabā…" : "Saglabāt izmaiņas"}
+        </button>
+      </footer>
+    </Modal>
+  );
+}
+
+function StudentJournalModal({ student, columns, close, openGrade }) {
+  const items = columns.map((column) => ({
+    column,
+    result: column.results.find((item) => item.studentId === student.id),
+  }));
+  return (
+    <Modal title={student.name} close={close} wide>
+      <div className="journal-student-summary-head">
+        <UserRound size={18} />
+        <div>
+          <b>Skolēna žurnāla pārskats</b>
+          <span>{items.length} ieraksti</span>
+        </div>
+      </div>
+      <div className="journal-student-records">
+        {items.map(({ column, result }) => {
+          const editable = column.kind !== "lesson" && !column.entryId;
+          return (
+            <button
+              key={column.id}
+              disabled={!editable}
+              onClick={() => editable && openGrade(column, result)}
+            >
+              <time>{displayDate(column.date)}</time>
+              <span>
+                <b>{column.title}</b>
+                <small>{column.kind === "lesson" ? "Mācību stunda" : "Vērtējums"}</small>
+              </span>
+              <strong>
+                {column.kind === "lesson"
+                  ? result?.status === "absent"
+                    ? "n"
+                    : "—"
+                  : result
+                    ? column.kind === "formative"
+                      ? `${assessmentPercent(result)}%`
+                      : result.grade
+                    : "—"}
+              </strong>
+            </button>
+          );
+        })}
+      </div>
+    </Modal>
+  );
+}
+
 function GradeModal({ value, projects, evidenceByProject, busy, close, save }) {
   const criteria = value.column.criteria || [],
     current = value.current,

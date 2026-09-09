@@ -234,7 +234,50 @@ export async function getJournalEntries(user, courseIds = []) {
     .from(journalEntries)
     .where(inArray(journalEntries.courseId, courseIds))
     .orderBy(asc(journalEntries.date), asc(journalEntries.startsAt));
-  return rows.map(entryDto);
+  return rows.filter((row) => row.metadata?.deleted !== true).map(entryDto);
+}
+
+export async function deleteJournalEntry(user, input) {
+  assertManage(user);
+  return withTransactionDatabase((db) =>
+    db.transaction(async (tx) => {
+      const course = await requireCourse(tx, user, input.courseId);
+      const rows = await tx
+        .select()
+        .from(journalEntries)
+        .where(
+          and(
+            eq(journalEntries.id, input.id),
+            eq(journalEntries.courseId, course.id),
+          ),
+        )
+        .limit(1);
+      const entry = rows[0];
+      if (!entry) throw new JournalNotFoundError("Journal entry not found");
+
+      if (entry.source === "timetable")
+        await tx
+          .update(journalEntries)
+          .set({
+            metadata: {
+              ...(entry.metadata || {}),
+              deleted: true,
+              deletedAt: new Date().toISOString(),
+              deletedBy: user.id,
+            },
+            updatedAt: new Date(),
+          })
+          .where(eq(journalEntries.id, entry.id));
+      else
+        await tx.delete(journalEntries).where(eq(journalEntries.id, entry.id));
+
+      await audit(tx, user, "journal.entry_deleted", entry.id, {
+        courseId: course.id,
+        source: entry.source,
+      });
+      return { id: entry.id, source: entry.source };
+    }),
+  );
 }
 
 export async function saveJournalEntry(user, input) {

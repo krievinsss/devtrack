@@ -84,6 +84,30 @@ export default async function JournalPage() {
       },
     ]),
   );
+  const finalByAssignment = new Map();
+  for (const result of finals) {
+    const project = projectById.get(result.projectId),
+      assignmentId = project?.assignmentId;
+    if (!assignmentId) continue;
+    const assignment = assignmentById.get(assignmentId),
+      current = finalByAssignment.get(assignmentId) || {
+        id: `final:${assignmentId}`,
+        groupId: assignmentGroup.get(assignmentId),
+        assignmentTitle: assignment?.title || project?.name || "",
+        kind: "final",
+        title: assignment?.title || project?.name || "Final grade",
+        date: result.updatedAt,
+        results: [],
+        criteria: result.criteria || assignment?.rubric || [],
+        assignmentId,
+      };
+    current.results.push(result);
+    if (new Date(result.updatedAt) > new Date(current.date))
+      current.date = result.updatedAt;
+    if (!current.criteria.length && result.criteria?.length)
+      current.criteria = result.criteria;
+    finalByAssignment.set(assignmentId, current);
+  }
   const assessments = [
     ...formative.map((event) => ({
       id: event.id,
@@ -107,24 +131,7 @@ export default async function JournalPage() {
       criteria: event.criteria || [],
       assignmentId: event.assignmentId,
     })),
-    ...finals.map((result) => {
-      const project = projectById.get(result.projectId);
-      return {
-        id: result.id,
-        groupId: assignmentGroup.get(project?.assignmentId),
-        assignmentTitle:
-          assignmentById.get(project?.assignmentId)?.title ||
-          project?.name ||
-          "",
-        kind: "final",
-        title: project?.name || "Final grade",
-        date: result.updatedAt,
-        results: [result],
-        criteria: result.criteria || [],
-        assignmentId: project?.assignmentId,
-        projectId: project?.id,
-      };
-    }),
+    ...finalByAssignment.values(),
   ].filter((item) => groupIds.has(item.groupId));
   return (
     <AppShell user={user}>

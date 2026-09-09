@@ -211,6 +211,10 @@
 .journal-column-head.final {
   box-shadow: inset 0 3px var(--blue);
 }
+.journal-column-head.manual-assessment {
+  box-shadow: inset 0 3px var(--entry-color, var(--blue));
+  background: color-mix(in srgb, var(--entry-color, var(--blue)) 7%, var(--bg));
+}
 .journal-student-col button {
   width: 100%;
   height: 100%;
@@ -752,6 +756,221 @@
   border-color: color-mix(in srgb, var(--primary) 65%, var(--border));
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
 }
+.journal-entry-types {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.journal-entry-types section h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 7px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 750;
+}
+.journal-entry-types section h3::after {
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+  content: "";
+}
+.journal-entry-types section > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.journal-entry-types button {
+  min-height: 39px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+.journal-entry-types button:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: var(--bg);
+}
+.journal-entry-types i {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 5px;
+}
+.journal-lesson-editor {
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+  gap: 10px;
+}
+.journal-lesson-editor > aside,
+.journal-editor-content {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
+}
+.journal-editor-side-title {
+  padding: 9px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.journal-editor-side-title > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.journal-editor-side-title input {
+  height: 31px;
+  background: var(--card);
+}
+.journal-lesson-options {
+  max-height: 340px;
+  overflow: auto;
+  padding: 5px;
+}
+.journal-lesson-options button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.journal-lesson-options button:hover,
+.journal-lesson-options button.active {
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+}
+.journal-lesson-options i {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--primary);
+  border-radius: 50%;
+}
+.journal-lesson-options button.active i {
+  box-shadow: inset 0 0 0 2px var(--card);
+  background: var(--primary);
+}
+.journal-lesson-options b,
+.journal-lesson-options small {
+  display: block;
+}
+.journal-lesson-options b {
+  font-size: 8px;
+}
+.journal-lesson-options small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 7px;
+}
+.journal-lesson-options strong {
+  color: var(--muted);
+  font-size: 7px;
+}
+.journal-period-select {
+  display: block;
+  padding: 10px;
+}
+.journal-editor-content > label {
+  display: block;
+  padding: 10px;
+}
+.journal-editor-content > label + label {
+  padding-top: 0;
+}
+.journal-editor-content textarea {
+  min-height: 190px;
+}
+.journal-editor-footer {
+  margin-top: 1px;
+  padding-top: 10px !important;
+  border-top: 1px solid var(--border);
+}
+.journal-records-card {
+  overflow: hidden;
+  border-radius: 10px;
+}
+.journal-records-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.journal-records-card h3,
+.journal-records-card p {
+  margin: 0;
+}
+.journal-records-card h3 {
+  font-size: 11px;
+}
+.journal-records-card p,
+.journal-records-card header > span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 7px;
+}
+.journal-records-scroll {
+  max-height: 420px;
+  overflow: auto;
+}
+.journal-records-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.journal-records-scroll th,
+.journal-records-scroll td {
+  padding: 7px 9px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.journal-records-scroll th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 7px;
+  text-transform: uppercase;
+}
+.journal-records-scroll th:nth-child(1) {
+  width: 82px;
+}
+.journal-records-scroll th:nth-child(2) {
+  width: 70px;
+}
+.journal-records-scroll th:nth-child(3) {
+  width: 28%;
+}
+.journal-records-scroll th:nth-child(5) {
+  width: 95px;
+}
+.journal-muted {
+  color: var(--muted);
+  font-style: italic;
+}
 .journal-modal label > span {
   display: block;
   margin-bottom: 5px;
@@ -953,5 +1172,10 @@
   }
   .lesson-plan-main > header > div:last-child {
     flex-wrap: wrap;
+  }
+  .journal-entry-types section > div,
+  .journal-lesson-editor,
+  .journal-feedback-grid {
+    grid-template-columns: 1fr;
   }
 }

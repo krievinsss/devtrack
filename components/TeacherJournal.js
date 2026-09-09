@@ -6,6 +6,83 @@ import { useMemo, useState } from "react";
 import { gradeFromPercent } from "@/lib/grading";
 import { ProjectEvidence } from "@/components/TeacherGradebook";
 
+const JOURNAL_ENTRY_TYPES = [
+  { id: "lesson", label: "Mācību stunda", color: "#ffffff", group: "basic" },
+  {
+    id: "assessment",
+    label: "Pārbaudes darbs",
+    color: "#a9deeb",
+    group: "basic",
+  },
+  {
+    id: "semester_1_mid",
+    label: "I semestra starpvērtējums",
+    color: "#fff400",
+    group: "semester",
+  },
+  {
+    id: "semester_2_mid",
+    label: "II semestra starpvērtējums",
+    color: "#fff400",
+    group: "semester",
+  },
+  {
+    id: "semester_1",
+    label: "I semestra vērtējums",
+    color: "#bebebe",
+    group: "semester",
+  },
+  {
+    id: "semester_2",
+    label: "II semestra vērtējums",
+    color: "#bebebe",
+    group: "semester",
+  },
+  {
+    id: "predicted",
+    label: "Prognozētais vērtējums / Kombinētais darbs",
+    color: "#f2e1fb",
+    group: "semester",
+  },
+  { id: "year", label: "Gada vērtējums", color: "#12e827", group: "semester" },
+  {
+    id: "retake",
+    label: "Pēcpārbaudījums",
+    color: "#df6be3",
+    group: "semester",
+  },
+  {
+    id: "subject_final",
+    label: "Galīgais vērtējums priekšmetā",
+    color: "#f4e68b",
+    group: "semester",
+  },
+  {
+    id: "state_diagnostic",
+    label: "Valsts diagnosticējošais darbs",
+    color: "#19dce5",
+    group: "state",
+  },
+  {
+    id: "state_exam",
+    label: "Valsts eksāmens",
+    color: "#ffa000",
+    group: "state",
+  },
+  {
+    id: "state_monitoring",
+    label: "Valsts monitoringa darbs",
+    color: "#effff0",
+    group: "state",
+  },
+  {
+    id: "session_exam",
+    label: "Sesijas eksāmens",
+    color: "#ffcc80",
+    group: "state",
+  },
+];
+
 export default function TeacherJournal({
   courses = [],
   groups = [],
@@ -22,7 +99,8 @@ export default function TeacherJournal({
     [entries, setEntries] = useState(initialEntries),
     [assessments, setAssessments] = useState(initialAssessments),
     [editor, setEditor] = useState(null),
-    [adding, setAdding] = useState(false),
+    [adding, setAdding] = useState(null),
+    [choosingType, setChoosingType] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const course = courses.find((item) => item.id === courseId) || courses[0];
@@ -30,7 +108,6 @@ export default function TeacherJournal({
     () =>
       buildJournal({
         course,
-        courses,
         groups,
         students,
         lessons,
@@ -38,16 +115,7 @@ export default function TeacherJournal({
         assessments,
         semester,
       }),
-    [
-      course,
-      courses,
-      groups,
-      students,
-      lessons,
-      entries,
-      assessments,
-      semester,
-    ],
+    [course, groups, students, lessons, entries, assessments, semester],
   );
 
   async function saveEntry(input) {
@@ -246,8 +314,8 @@ export default function TeacherJournal({
           </select>
         </label>
         <div className="journal-toolbar-actions">
-          <button className="btn primary" onClick={() => setAdding(true)}>
-            <Plus size={14} /> Add
+          <button className="btn primary" onClick={() => setChoosingType(true)}>
+            <Plus size={14} /> Jauns ieraksts
           </button>
           <Link href="/lesson-planning" className="btn secondary">
             <Settings2 size={14} /> Lesson plan
@@ -284,6 +352,12 @@ export default function TeacherJournal({
                   <th
                     key={column.id}
                     className={`journal-column-head ${column.kind}`}
+                    style={
+                      column.entryColor
+                        ? { "--entry-color": column.entryColor }
+                        : undefined
+                    }
+                    title={column.title}
                     onClick={() =>
                       column.entryId && setEditor({ mode: "entry", column })
                     }
@@ -292,12 +366,14 @@ export default function TeacherJournal({
                     <b>
                       {column.kind === "lesson"
                         ? column.period || ""
-                        : typeMark(column.kind)}
+                        : column.mark || typeMark(column.kind)}
                     </b>
                     <small>
                       {column.kind === "lesson"
                         ? "ST"
-                        : column.kind.slice(0, 3).toUpperCase()}
+                        : column.kind === "manual-assessment"
+                          ? "VĒRT"
+                          : column.kind.slice(0, 3).toUpperCase()}
                     </small>
                   </th>
                 ))}
@@ -365,18 +441,37 @@ export default function TeacherJournal({
           )}
         </div>
       </section>
+      <LessonRecordsTable records={model.lessonOptions} />
+      {choosingType && (
+        <EntryTypeModal
+          close={() => setChoosingType(false)}
+          choose={(type) => {
+            setChoosingType(false);
+            setAdding(type);
+          }}
+        />
+      )}
       {adding && (
         <EntryModal
-          title="Add journal entry"
+          title={adding.label}
           initial={{
-            type: "lesson",
+            type: adding.id === "lesson" ? "lesson" : "assessment",
             date: localDate(),
             timetablePeriod: null,
             topic: "",
             outcome: "",
+            metadata:
+              adding.id === "lesson"
+                ? {}
+                : {
+                    assessmentType: adding.id,
+                    label: adding.label,
+                    color: adding.color,
+                  },
           }}
+          lessonOptions={model.lessonOptions}
           busy={busy}
-          close={() => setAdding(false)}
+          close={() => setAdding(null)}
           save={saveEntry}
         />
       )}
@@ -384,6 +479,7 @@ export default function TeacherJournal({
         <EntryModal
           title="Lesson entry"
           initial={editor.column}
+          lessonOptions={model.lessonOptions}
           busy={busy}
           close={() => setEditor(null)}
           save={saveEntry}
@@ -403,7 +499,86 @@ export default function TeacherJournal({
   );
 }
 
-function EntryModal({ title, initial, busy, close, save }) {
+function EntryTypeModal({ close, choose }) {
+  const groups = [
+    ["basic", "Ieraksta veids"],
+    ["semester", "Semestra / gada vērtējumi"],
+    ["state", "Valsts pārbaudījumi"],
+  ];
+  return (
+    <Modal title="Jauns ieraksts" close={close} wide>
+      <div className="journal-entry-types">
+        {groups.map(([group, label]) => (
+          <section key={group}>
+            <h3>{label}</h3>
+            <div>
+              {JOURNAL_ENTRY_TYPES.filter((item) => item.group === group).map(
+                (item) => (
+                  <button key={item.id} onClick={() => choose(item)}>
+                    <i style={{ background: item.color }} />
+                    <span>{item.label}</span>
+                  </button>
+                ),
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
+function LessonRecordsTable({ records = [] }) {
+  return (
+    <section className="panel journal-records-card">
+      <header>
+        <div>
+          <h3>Stundu ieraksti</h3>
+          <p>Visas mācību stundas, tēmas un sasniedzamie rezultāti.</p>
+        </div>
+        <span>{records.length} ieraksti</span>
+      </header>
+      <div className="journal-records-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Datums</th>
+              <th>Stunda</th>
+              <th>Tēma</th>
+              <th>Sasniedzamais rezultāts</th>
+              <th>Avots</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...records].reverse().map((record) => (
+              <tr key={record.id}>
+                <td>{displayDate(record.date)}</td>
+                <td>{record.period ? `${record.period}. stunda` : "—"}</td>
+                <td>
+                  {record.topic || (
+                    <span className="journal-muted">Nav aizpildīts</span>
+                  )}
+                </td>
+                <td>
+                  {record.outcome || (
+                    <span className="journal-muted">Nav aizpildīts</span>
+                  )}
+                </td>
+                <td>
+                  {record.source === "timetable"
+                    ? "Stundu saraksts"
+                    : "Manuāli"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function EntryModal({ title, initial, lessonOptions = [], busy, close, save }) {
   const [form, setForm] = useState({
     id: initial.entryId || initial.id,
     type: initial.type === "assessment" ? "assessment" : "lesson",
@@ -412,72 +587,123 @@ function EntryModal({ title, initial, busy, close, save }) {
     topic: initial.manualTopic ?? initial.topic ?? "",
     outcome: initial.manualOutcome ?? initial.outcome ?? "",
     source: initial.source || "manual",
+    metadata: initial.metadata || {},
   });
+  const isLesson = form.type === "lesson";
+  const selectLesson = (option) =>
+    setForm({
+      ...form,
+      id: option.entryId,
+      source: option.source,
+      date: isoDate(option.date),
+      timetablePeriod: option.period || "",
+      topic: option.manualTopic ?? option.topic ?? "",
+      outcome: option.manualOutcome ?? option.outcome ?? "",
+      metadata: option.metadata || {},
+    });
   return (
-    <Modal title={title} close={close}>
-      <label>
-        <span>Entry type</span>
-        <select
-          value={form.type}
-          onChange={(e) => setForm({ ...form, type: e.target.value })}
-        >
-          <option value="lesson">Lesson</option>
-          <option value="assessment">Assessment</option>
-        </select>
-      </label>
-      <label>
-        <span>Date</span>
-        <input
-          type="date"
-          disabled={form.source === "timetable"}
-          value={form.date}
-          onChange={(e) => setForm({ ...form, date: e.target.value })}
-        />
-      </label>
-      <label>
-        <span>Lesson period</span>
-        <select
-          disabled={form.source === "timetable"}
-          value={form.timetablePeriod}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              timetablePeriod: e.target.value ? Number(e.target.value) : "",
-            })
-          }
-        >
-          <option value="">Not specified</option>
-          {Array.from({ length: 12 }, (_, index) => index + 1).map((period) => (
-            <option key={period} value={period}>
-              {period}. lesson
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span>Lesson topic</span>
-        <input
-          value={form.topic}
-          onChange={(e) => setForm({ ...form, topic: e.target.value })}
-        />
-      </label>
-      <label>
-        <span>Learning outcome</span>
-        <textarea
-          value={form.outcome}
-          onChange={(e) => setForm({ ...form, outcome: e.target.value })}
-        />
-      </label>
-      <footer>
+    <Modal title={title} close={close} wide>
+      <div className="journal-lesson-editor">
+        <aside>
+          <div className="journal-editor-side-title">
+            <span>Datums un stunda</span>
+            <input
+              type="date"
+              disabled={form.source === "timetable"}
+              value={form.date}
+              onChange={(e) => setForm({ ...form, date: e.target.value })}
+            />
+          </div>
+          {isLesson && lessonOptions.length > 0 ? (
+            <div className="journal-lesson-options">
+              {lessonOptions.map((option) => (
+                <button
+                  type="button"
+                  key={option.id}
+                  className={form.id === option.entryId ? "active" : ""}
+                  onClick={() => selectLesson(option)}
+                >
+                  <i />
+                  <span>
+                    <b>{weekday(option.date)}</b>
+                    <small>{displayDate(option.date)}</small>
+                  </span>
+                  <strong>
+                    {option.period ? `${option.period}. stunda` : "Stunda"}
+                  </strong>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <label className="journal-period-select">
+              <span>Stunda</span>
+              <select
+                value={form.timetablePeriod}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    timetablePeriod: e.target.value
+                      ? Number(e.target.value)
+                      : "",
+                  })
+                }
+              >
+                <option value="">Nav norādīta</option>
+                {Array.from({ length: 12 }, (_, index) => index + 1).map(
+                  (period) => (
+                    <option key={period} value={period}>
+                      {period}. stunda
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+          )}
+        </aside>
+        <section className="journal-editor-content">
+          <div className="journal-section-title">
+            <b>
+              {isLesson
+                ? "Sasniedzamais rezultāts / Tēma"
+                : "Ieraksta informācija"}
+            </b>
+            {form.metadata?.label && <span>{form.metadata.label}</span>}
+          </div>
+          <label>
+            <span>{isLesson ? "Stundas tēma" : "Nosaukums"}</span>
+            <input
+              autoFocus
+              value={form.topic}
+              onChange={(e) => setForm({ ...form, topic: e.target.value })}
+              placeholder={
+                isLesson ? "Ievadi stundas tēmu…" : "Ievadi ieraksta nosaukumu…"
+              }
+            />
+          </label>
+          <label>
+            <span>{isLesson ? "Sasniedzamais rezultāts" : "Piezīmes"}</span>
+            <textarea
+              value={form.outcome}
+              onChange={(e) => setForm({ ...form, outcome: e.target.value })}
+              placeholder={
+                isLesson
+                  ? "Ko skolēns pēc stundas pratīs un sapratīs?"
+                  : "Papildu informācija…"
+              }
+            />
+          </label>
+        </section>
+      </div>
+      <footer className="journal-editor-footer">
         <button className="btn secondary" onClick={close}>
-          Cancel
+          Atcelt
         </button>
         <button
           className="btn primary"
           disabled={busy || !form.date}
           onClick={() => save(form)}
         >
-          <Save size={14} /> {busy ? "Saving…" : "Save"}
+          <Save size={14} /> {busy ? "Saglabā…" : "Saglabāt"}
         </button>
       </footer>
     </Modal>
@@ -702,9 +928,19 @@ function assessmentPercent(result) {
   return max ? Math.round((total / max) * 100) : 0;
 }
 
+function displayDate(value) {
+  return new Date(value).toLocaleDateString("lv-LV");
+}
+
+function weekday(value) {
+  const text = new Date(value).toLocaleDateString("lv-LV", {
+    weekday: "long",
+  });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 function buildJournal({
   course,
-  courses,
   groups,
   students,
   lessons,
@@ -744,15 +980,20 @@ function buildJournal({
             (!item.timetablePeriod ||
               Number(item.timetablePeriod) === Number(entry.timetablePeriod)),
         ) || (sequenceIndex >= 0 ? course.items[sequenceIndex] : null),
-      attendance = lessons.find(
-        (item) =>
-          item.groupId === course.groupId &&
-          isoDate(item.startsAt) === entry.date &&
-          Number(item.period || 0) === Number(entry.timetablePeriod || 0) &&
-          relatedSubject(item.subject, course.subject),
-      ),
+      attendance =
+        entry.type === "lesson"
+          ? lessons.find(
+              (item) =>
+                item.groupId === course.groupId &&
+                isoDate(item.startsAt) === entry.date &&
+                Number(item.period || 0) ===
+                  Number(entry.timetablePeriod || 0) &&
+                relatedSubject(item.subject, course.subject),
+            )
+          : null,
       results = rows
         .map((student) => {
+          if (entry.type !== "lesson") return null;
           const override = entry.attendanceOverrides?.[student.id];
           if (override) return { studentId: student.id, status: override };
           const recorded = attendance?.results?.find(
@@ -767,7 +1008,9 @@ function buildJournal({
     return {
       ...entry,
       entryId: entry.id,
-      kind: entry.type === "assessment" ? "summative" : "lesson",
+      kind: entry.type === "assessment" ? "manual-assessment" : "lesson",
+      mark: entry.type === "assessment" ? "V" : "",
+      entryColor: entry.metadata?.color || "#a9deeb",
       date: entry.startsAt || `${entry.date}T12:00:00Z`,
       period: entry.timetablePeriod,
       manualTopic: entry.topic,
@@ -778,15 +1021,8 @@ function buildJournal({
       results,
     };
   });
-  const groupCourses = courses.filter(
-      (item) => item.groupId === course.groupId,
-    ),
-    assessmentColumns = assessments
-      .filter(
-        (item) =>
-          item.groupId === course.groupId &&
-          (groupCourses.length === 1 || relatedAssessment(course, item)),
-      )
+  const assessmentColumns = assessments
+      .filter((item) => item.groupId === course.groupId)
       .map((item) => ({
         ...item,
         date: item.date,
@@ -809,6 +1045,7 @@ function buildJournal({
   return {
     columns,
     rows,
+    lessonOptions: lessonColumns.filter((column) => column.kind === "lesson"),
     lessonCount: attendanceColumns.length,
     assessmentCount:
       assessmentColumns.length +

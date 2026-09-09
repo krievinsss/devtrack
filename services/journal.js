@@ -268,6 +268,7 @@ export async function saveJournalEntry(user, input) {
                 : rows[0].timetablePeriod,
             attendanceOverrides:
               input.attendanceOverrides || rows[0].attendanceOverrides,
+            metadata: input.metadata || rows[0].metadata,
             updatedAt: new Date(),
           })
           .where(eq(journalEntries.id, input.id))
@@ -288,6 +289,7 @@ export async function saveJournalEntry(user, input) {
             topic: input.topic || "",
             outcome: input.outcome || "",
             attendanceOverrides: input.attendanceOverrides || {},
+            metadata: input.metadata || {},
             createdBy: user.id,
           })
           .returning();

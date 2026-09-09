@@ -19,6 +19,13 @@ const courseSchema = z.object({
 const planItem = z.object({
   topic: z.string().trim().min(1).max(300),
   outcome: z.string().trim().max(2000).default(""),
+  metadata: z
+    .object({
+      assessmentType: z.string().trim().max(80).optional(),
+      label: z.string().trim().max(160).optional(),
+      color: z.string().trim().max(30).optional(),
+    })
+    .optional(),
   type: z
     .enum(["lesson", "practical", "formative", "summative", "final"])
     .default("lesson"),

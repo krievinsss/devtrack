@@ -4,6 +4,12 @@ import Link from "next/link";
 import { BookOpen, CalendarDays, Plus, Save, Settings2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { gradeFromPercent } from "@/lib/grading";
+import {
+  firstLessonOfOvertime,
+  overtimeBlockNumber,
+  overtimeLabel,
+  SCHOOL_OVERTIME_BLOCKS,
+} from "@/lib/schoolPeriods";
 import { ProjectEvidence } from "@/components/TeacherGradebook";
 
 const JOURNAL_ENTRY_TYPES = [
@@ -365,12 +371,12 @@ export default function TeacherJournal({
                     <span>{compactDate(column.date)}</span>
                     <b>
                       {column.kind === "lesson"
-                        ? column.period || ""
+                        ? overtimeBlockNumber(column.period) || ""
                         : column.mark || typeMark(column.kind)}
                     </b>
                     <small>
                       {column.kind === "lesson"
-                        ? "ST"
+                        ? "PĀR"
                         : column.kind === "manual-assessment"
                           ? "VĒRT"
                           : column.kind.slice(0, 3).toUpperCase()}
@@ -543,7 +549,7 @@ function LessonRecordsTable({ records = [] }) {
           <thead>
             <tr>
               <th>Datums</th>
-              <th>Stunda</th>
+              <th>Pārstunda</th>
               <th>Tēma</th>
               <th>Sasniedzamais rezultāts</th>
               <th>Avots</th>
@@ -553,7 +559,7 @@ function LessonRecordsTable({ records = [] }) {
             {[...records].reverse().map((record) => (
               <tr key={record.id}>
                 <td>{displayDate(record.date)}</td>
-                <td>{record.period ? `${record.period}. stunda` : "—"}</td>
+                <td>{record.period ? overtimeLabel(record.period) : "—"}</td>
                 <td>
                   {record.topic || (
                     <span className="journal-muted">Nav aizpildīts</span>
@@ -606,7 +612,7 @@ function EntryModal({ title, initial, lessonOptions = [], busy, close, save }) {
       <div className="journal-lesson-editor">
         <aside>
           <div className="journal-editor-side-title">
-            <span>Datums un stunda</span>
+            <span>Datums un pārstunda</span>
             <input
               type="date"
               disabled={form.source === "timetable"}
@@ -629,14 +635,14 @@ function EntryModal({ title, initial, lessonOptions = [], busy, close, save }) {
                     <small>{displayDate(option.date)}</small>
                   </span>
                   <strong>
-                    {option.period ? `${option.period}. stunda` : "Stunda"}
+                    {option.period ? overtimeLabel(option.period) : "Pārstunda"}
                   </strong>
                 </button>
               ))}
             </div>
           ) : (
             <label className="journal-period-select">
-              <span>Stunda</span>
+              <span>Pārstunda</span>
               <select
                 value={form.timetablePeriod}
                 onChange={(e) =>
@@ -649,10 +655,10 @@ function EntryModal({ title, initial, lessonOptions = [], busy, close, save }) {
                 }
               >
                 <option value="">Nav norādīta</option>
-                {Array.from({ length: 12 }, (_, index) => index + 1).map(
-                  (period) => (
-                    <option key={period} value={period}>
-                      {period}. stunda
+                {SCHOOL_OVERTIME_BLOCKS.map(
+                  (block) => (
+                    <option key={block} value={firstLessonOfOvertime(block)}>
+                      {block}. pārstunda
                     </option>
                   ),
                 )}

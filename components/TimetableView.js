@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Fragment,useEffect,useMemo,useState } from 'react';
 import { ArrowRight,BookOpen,CalendarCheck2,CalendarClock,ChevronLeft,ChevronRight,CircleAlert,Coffee,LayoutGrid,List,MapPin,Radio,RefreshCw,Sparkles,TimerReset,UsersRound,Wifi } from 'lucide-react';
+import { overtimeLabel } from '@/lib/schoolPeriods';
 
 const DAYS=[
   {id:1,long:'Monday',short:'Mon'},
@@ -89,7 +90,7 @@ function LessonsWithBreaks({lessons,role,liveId}){
 function LessonCard({lesson,role,live}){
   const color=colorFor(`${lesson.subject}-${lesson.group}`);
   return <article className={`tt-lesson accent-${color} ${live?'is-live':''}`}>
-    <div className="tt-lesson-top"><span>{lesson.start}–{lesson.end}</span><i>#{lesson.period}</i></div>
+    <div className="tt-lesson-top"><span>{lesson.start}–{lesson.end}</span><i>{overtimeLabel(lesson.period)}</i></div>
     <h3>{lesson.subject}</h3>
     <LessonMeta lesson={lesson} role={role}/>
     {lesson.division&&lesson.division.toLowerCase()!=='visa klase'&&<span className="tt-division">{lesson.division}</span>}
@@ -100,7 +101,7 @@ function LessonCard({lesson,role,live}){
 function Agenda({days,today,role,liveId}){
   return <div className="tt-agenda">{days.map(day=><section className={`tt-agenda-day ${day.date===today?'is-today':''}`} key={day.id}>
     <header><div><span>{day.short}</span><strong>{Number(day.date.slice(-2))}</strong></div><div><h3>{day.long}</h3><p>{formatDate(day.date)} · {day.lessons.length} {day.lessons.length===1?'lesson':'lessons'}</p></div>{day.date===today&&<i>Today</i>}</header>
-    <div>{day.lessons.map(lesson=><article className={`tt-agenda-row accent-${colorFor(`${lesson.subject}-${lesson.group}`)} ${lesson.id===liveId?'is-live':''}`} key={lesson.id}><time><b>{lesson.start}</b><span>{lesson.end}</span></time><span className="tt-agenda-line"/><div className="tt-agenda-subject"><span>Period #{lesson.period}</span><h3>{lesson.subject}</h3><LessonMeta lesson={lesson} role={role}/></div>{lesson.id===liveId&&<b className="tt-now-chip"><Radio size={11}/> Now</b>}</article>)}{!day.lessons.length&&<div className="tt-agenda-empty"><Coffee size={18}/> No lessons scheduled</div>}</div>
+    <div>{day.lessons.map(lesson=><article className={`tt-agenda-row accent-${colorFor(`${lesson.subject}-${lesson.group}`)} ${lesson.id===liveId?'is-live':''}`} key={lesson.id}><time><b>{lesson.start}</b><span>{lesson.end}</span></time><span className="tt-agenda-line"/><div className="tt-agenda-subject"><span>{overtimeLabel(lesson.period)}</span><h3>{lesson.subject}</h3><LessonMeta lesson={lesson} role={role}/></div>{lesson.id===liveId&&<b className="tt-now-chip"><Radio size={11}/> Now</b>}</article>)}{!day.lessons.length&&<div className="tt-agenda-empty"><Coffee size={18}/> No lessons scheduled</div>}</div>
   </section>)}</div>;
 }
 

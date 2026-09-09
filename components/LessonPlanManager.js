@@ -12,6 +12,11 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import {
+  firstLessonOfOvertime,
+  overtimeBlockNumber,
+  SCHOOL_OVERTIME_BLOCKS,
+} from "@/lib/schoolPeriods";
 
 const blank = () => ({
   topic: "",
@@ -226,15 +231,25 @@ export default function LessonPlanManager({
                       patch(index, "plannedDate", event.target.value)
                     }
                   />
-                  <input
-                    type="number"
-                    min="1"
-                    max="20"
-                    value={item.timetablePeriod || ""}
+                  <select
+                    value={overtimeBlockNumber(item.timetablePeriod) || ""}
                     onChange={(event) =>
-                      patch(index, "timetablePeriod", event.target.value)
+                      patch(
+                        index,
+                        "timetablePeriod",
+                        event.target.value
+                          ? firstLessonOfOvertime(event.target.value)
+                          : "",
+                      )
                     }
-                  />
+                  >
+                    <option value="">Pārstunda</option>
+                    {SCHOOL_OVERTIME_BLOCKS.map((block) => (
+                      <option key={block} value={block}>
+                        {block}. pārstunda
+                      </option>
+                    ))}
+                  </select>
                   <button
                     onClick={() =>
                       setItems((current) =>

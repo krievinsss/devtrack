@@ -8,6 +8,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import { overtimeLabel } from "@/lib/schoolPeriods";
 
 async function request(body) {
   const response = await fetch("/api/attendance", {
@@ -87,8 +88,8 @@ export default function TimeSessionModal({
             <span className="eyebrow">Timetable attendance</span>
             <h2>Open scheduled lessons</h2>
             <p>
-              Select the timetable block. Every period is saved separately from
-              one desk check-in.
+              Izvēlies pārstundu. Tās abas mācību stundas tiks sasaistītas ar
+              vienu galda pierakstīšanos.
             </p>
           </div>
           <button type="button" className="icon-btn" onClick={onClose}>
@@ -136,7 +137,7 @@ export default function TimeSessionModal({
               <div>
                 {selected.lessons.map((lesson) => (
                   <span key={lesson.id}>
-                    #{lesson.period}
+                    {overtimeLabel(lesson.period)}
                     <small>
                       {lesson.start}–{lesson.end}
                     </small>

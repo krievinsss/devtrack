@@ -87,23 +87,28 @@ function TeacherAttendance({
   const selected = data?.selected,
     hasOpen = (data?.active || []).length > 0;
   const reload = useCallback(
-    async (id = selectedId) => {
+    async (id = selectedId, sync = false) => {
       try {
+        const params = new URLSearchParams();
+        if (id) params.set("sessionId", id);
+        if (sync) params.set("sync", "1");
         const response = await fetch(
-            `/api/attendance${id ? `?sessionId=${id}` : ""}`,
+            `/api/attendance${params.size ? `?${params}` : ""}`,
             { cache: "no-store" },
           ),
           next = await response.json();
-        if (response.ok) setData(next.attendance);
+        if (response.ok) {
+          setData(next.attendance);
+          setSelectedId(next.attendance?.selected?.id || null);
+        }
       } catch {}
     },
     [selectedId],
   );
   useEffect(() => {
-    if (!hasOpen) return;
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible") reload();
-    }, 5000);
+      if (document.visibilityState === "visible") reload(null, true);
+    }, hasOpen ? 5000 : 15000);
     return () => clearInterval(timer);
   }, [hasOpen, reload]);
   async function choose(id) {

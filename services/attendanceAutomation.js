@@ -14,6 +14,23 @@ import {
   dateInRiga,
   timetableForUser,
 } from "@/services/timetable";
+import { getClassrooms } from "@/services/classrooms";
+import { getGroups } from "@/services/groups";
+
+export async function reconcileAutomaticAttendance(user, now = new Date()) {
+  const [groups, classrooms] = await Promise.all([
+    getGroups(),
+    getClassrooms(user, { includeInactive: false }),
+  ]);
+  const closed = await closeExpiredAutomaticAttendance(user, now);
+  const synced = await syncAutomaticAttendanceForTeacher(
+    user,
+    groups,
+    classrooms,
+    now,
+  );
+  return { closed, synced };
+}
 
 export async function closeExpiredAutomaticAttendance(user, now = new Date()) {
   const dashboard = await getAttendanceDashboard(user, { historyLimit: 100 });

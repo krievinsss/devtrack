@@ -77,6 +77,25 @@ export default function AppShell({ user, children }) {
     [nowPlaying, setNowPlaying] = useState(null);
   const musicEnabled =
     !Array.isArray(user.moduleKeys) || user.moduleKeys.includes("music");
+  const attendanceEnabled =
+    !Array.isArray(user.moduleKeys) || user.moduleKeys.includes("attendance");
+  useEffect(() => {
+    if (user.role === "student" || !attendanceEnabled) return;
+    const sync = () => {
+      if (document.visibilityState !== "visible") return;
+      fetch(`/api/attendance?sync=1&syncOnly=1&t=${Date.now()}`, {
+        cache: "no-store",
+      }).catch(() => {});
+    };
+    const start = setTimeout(sync, 0),
+      timer = setInterval(sync, 60_000);
+    window.addEventListener("focus", sync);
+    return () => {
+      clearTimeout(start);
+      clearInterval(timer);
+      window.removeEventListener("focus", sync);
+    };
+  }, [attendanceEnabled, user.role]);
   useEffect(() => {
     const d =
         localStorage.getItem("theme") === "dark" ||

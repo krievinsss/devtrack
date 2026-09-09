@@ -13,6 +13,7 @@ import {
   markAttendance,
   openAttendanceSession,
 } from "@/services/attendance";
+import { reconcileAutomaticAttendance } from "@/services/attendanceAutomation";
 
 const id = z.string().uuid();
 const timetableLessonSchema = z.object({
@@ -64,7 +65,12 @@ export async function GET(request) {
   try {
     if (auth.user.role === "student")
       return ok({ attendance: await getStudentAttendance(auth.user) });
-    const sessionId = new URL(request.url).searchParams.get("sessionId");
+    const params = new URL(request.url).searchParams;
+    if (params.get("sync") === "1") {
+      const automation = await reconcileAutomaticAttendance(auth.user);
+      if (params.get("syncOnly") === "1") return ok({ automation });
+    }
+    const sessionId = params.get("sessionId");
     return ok({
       attendance: await getAttendanceDashboard(auth.user, { sessionId }),
     });

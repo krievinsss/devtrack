@@ -1,60 +1,29 @@
 import { NextResponse } from "next/server";
-import {
-  closeExpiredAutomaticAttendance,
-  syncAutomaticAttendanceForTeacher,
-} from "@/services/attendanceAutomation";
+import { closeExpiredAutomaticAttendance, syncAutomaticAttendanceForTeacher } from "@/services/attendanceAutomation";
 import { getClassrooms } from "@/services/classrooms";
 import { getGroups } from "@/services/groups";
 import { getUsers } from "@/services/users";
+import { getCoreUserWithAccess } from "@/services/coreDirectory";
+import { cronAuthorized, runAttendanceCron } from "@/lib/attendanceCron";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret && request.headers.get("authorization") !== `Bearer ${secret}`)
-    return NextResponse.json(
-      { ok: false, error: "Unauthorized" },
-      { status: 401 },
-    );
-
-  const now = new Date();
-  const [groups, users] = await Promise.all([getGroups(), getUsers()]);
-  const teachers = users.filter(
-    (user) => user.active !== false && ["teacher", "admin"].includes(user.role),
-  );
-  const closer =
-    teachers.find(
-      (user) => user.role === "admin" || user.platformRole === "super_admin",
-    ) || teachers[0];
-  const closed = closer
-    ? await closeExpiredAutomaticAttendance(closer, now)
-    : [];
-  const results = [];
-  for (const teacher of teachers) {
-    try {
-      const classrooms = await getClassrooms(teacher, {
-        includeInactive: false,
-      });
-      results.push(
-        await syncAutomaticAttendanceForTeacher(
-          teacher,
-          groups,
-          classrooms,
-          now,
-        ),
-      );
-    } catch (error) {
-      results.push({
-        teacherId: teacher.id,
-        error: error?.message || "Attendance sync failed",
-      });
-    }
+  if (!process.env.CRON_SECRET) {
+    console.error("attendance-cron: CRON_SECRET is not configured");
+    return NextResponse.json({ ok: false, error: "Cron is not configured" }, { status: 503 });
   }
-  return NextResponse.json({
-    ok: true,
-    ranAt: now.toISOString(),
-    closed,
-    results,
-  });
+  if (!cronAuthorized(process.env.CRON_SECRET, request.headers.get("authorization")))
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  const startedAt = Date.now();
+  try {
+    const result = await runAttendanceCron({ getGroups, getUsers, getCoreUserWithAccess,
+      getClassrooms, closeExpiredAutomaticAttendance, syncAutomaticAttendanceForTeacher });
+    console[result.ok ? "info" : "error"]("attendance-cron", JSON.stringify({ ...result, durationMs: Date.now() - startedAt }));
+    return NextResponse.json(result, { status: result.ok ? 200 : 500, headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("attendance-cron failed", error);
+    return NextResponse.json({ ok: false, error: "Attendance sync failed" }, { status: 500 });
+  }
 }

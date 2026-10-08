@@ -1,0 +1,33 @@
+[
+  {
+    "studentId": "student_333a96aaa5cc",
+    "credits": 0,
+    "xp": 0,
+    "level": 1,
+    "inventory": [],
+    "equipped": {
+      "avatar": null,
+      "avatar_frame": null,
+      "title": null,
+      "slug": null,
+      "ui_theme": null
+    },
+    "rewards": {},
+    "claimedLevels": [
+      1
+    ],
+    "achievements": [],
+    "stats": {
+      "commits": 0,
+      "fixCommits": 0,
+      "refactorCommits": 0,
+      "projectsCompleted": 0,
+      "attendancePresent": 0,
+      "musicRequests": 0,
+      "musicPlayed": 0,
+      "xpCanonicalV1": true,
+      "xpCanonicalV2": true
+    },
+    "updatedAt": "2026-10-08T07:06:11.877Z"
+  }
+]

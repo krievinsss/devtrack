@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Armchair,
   CalendarDays,
@@ -20,6 +20,10 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import {
+  attendancePollingInterval,
+  createAttendanceRequestTracker,
+} from "@/lib/attendance";
 import TimetableLessonModal from "./TimetableLessonModal";
 
 async function request(body) {
@@ -84,34 +88,43 @@ function TeacherAttendance({
     [busy, setBusy] = useState(""),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
+  const requestTrackerRef = useRef(createAttendanceRequestTracker());
   const selected = data?.selected,
     hasOpen = (data?.active || []).length > 0;
   const reload = useCallback(
     async (id = selectedId, sync = false) => {
+      const requestId = requestTrackerRef.current.nextRequestId();
+      const params = new URLSearchParams();
+      const targetId = id || selectedId;
+      if (targetId) params.set("sessionId", targetId);
+      if (sync) params.set("sync", "1");
       try {
-        const params = new URLSearchParams();
-        if (id) params.set("sessionId", id);
-        if (sync) params.set("sync", "1");
         const response = await fetch(
             `/api/attendance${params.size ? `?${params}` : ""}`,
             { cache: "no-store" },
           ),
           next = await response.json();
-        if (response.ok) {
-          setData(next.attendance);
-          setSelectedId(next.attendance?.selected?.id || null);
-        }
+        if (!response.ok || !requestTrackerRef.current.isLatest(requestId)) return;
+        setData(next.attendance);
+        const nextSelectedId = next.attendance?.selected?.id || targetId || null;
+        setSelectedId(nextSelectedId);
       } catch {}
     },
     [selectedId],
   );
   useEffect(() => {
+    const interval = attendancePollingInterval({
+      hasOpen,
+      isVisible: document.visibilityState === "visible",
+    });
+    if (!interval) return undefined;
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible") reload(null, true);
-    }, hasOpen ? 5000 : 15000);
+      void reload(selectedId, true);
+    }, interval);
     return () => clearInterval(timer);
-  }, [hasOpen, reload]);
+  }, [hasOpen, reload, selectedId]);
   async function choose(id) {
+    const requestId = requestTrackerRef.current.nextRequestId();
     setSelectedId(id);
     setBusy("load");
     try {
@@ -120,11 +133,13 @@ function TeacherAttendance({
         }),
         next = await response.json();
       if (!response.ok) throw new Error(next.error);
+      if (!requestTrackerRef.current.isLatest(requestId)) return;
       setData(next.attendance);
     } catch (cause) {
+      if (!requestTrackerRef.current.isLatest(requestId)) return;
       setError(cause.message);
     } finally {
-      setBusy("");
+      if (requestTrackerRef.current.isLatest(requestId)) setBusy("");
     }
   }
   async function action(kind) {

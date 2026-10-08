@@ -83,16 +83,18 @@ export async function getAttendanceDashboard(
       throw new AttendanceAccessError();
   }
   const active = sessionRows.filter((item) => item.status === "open");
-  return {
-    active: await Promise.all(
-      active.map((item) => hydrateSession(db, item, false)),
-    ),
-    selected: selected ? await hydrateSession(db, selected, true) : null,
-    history: await Promise.all(
+  const [activeSummary, historySummary] = await Promise.all([
+    Promise.all(active.map((item) => hydrateSessionSummary(db, item))),
+    Promise.all(
       sessionRows
         .filter((item) => item.status !== "open")
-        .map((item) => hydrateSession(db, item, false)),
+        .map((item) => hydrateSessionSummary(db, item)),
     ),
+  ]);
+  return {
+    active: activeSummary,
+    selected: selected ? await hydrateSession(db, selected, true) : null,
+    history: historySummary,
   };
 }
 
@@ -770,6 +772,40 @@ async function requireSession(db, user, id) {
   if (!isSchoolWide(user) && !canAccessGroup(user, session.groupId))
     throw new AttendanceAccessError();
   return session;
+}
+
+async function hydrateSessionSummary(db, session) {
+  const [roomRows, groupRows, records] = await Promise.all([
+    db
+      .select({ name: classrooms.name })
+      .from(classrooms)
+      .where(eq(classrooms.id, session.classroomId))
+      .limit(1),
+    db
+      .select({ name: groups.name })
+      .from(groups)
+      .where(eq(groups.id, session.groupId))
+      .limit(1),
+    db
+      .select({
+        status: attendanceRecords.status,
+        lessonStatuses: attendanceRecords.lessonStatuses,
+      })
+      .from(attendanceRecords)
+      .where(eq(attendanceRecords.sessionId, session.id)),
+  ]);
+  return {
+    ...sessionDto(session, {
+      classroomName: roomRows[0]?.name || "Classroom",
+      groupName: groupRows[0]?.name || "Group",
+    }),
+    summary: attendanceSummary(
+      records.map((row) => ({
+        status: row.status,
+        lessonStatuses: row.lessonStatuses || [],
+      })),
+    ),
+  };
 }
 
 async function hydrateSession(db, session, withStudents) {

@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   attendanceMinutesLate,
+  attendancePollingInterval,
   attendanceStatus,
   attendanceSummary,
+  createAttendanceRequestTracker,
   lessonStatusesForCheckIn,
   overallAttendanceStatus,
   sessionWindow,
@@ -92,4 +94,18 @@ test("session window distinguishes upcoming, active and ended", () => {
     sessionWindow({ ...window, now: "2026-09-08T07:00:01Z" }),
     "ended",
   );
+});
+
+test("attendance polling stays capped and stale responses are ignored", () => {
+  assert.equal(attendancePollingInterval({ hasOpen: true, isVisible: true }), 5000);
+  assert.equal(attendancePollingInterval({ hasOpen: false, isVisible: true }), 15000);
+  assert.equal(attendancePollingInterval({ hasOpen: true, isVisible: false }), 0);
+
+  const tracker = createAttendanceRequestTracker();
+  const first = tracker.nextRequestId();
+  const second = tracker.nextRequestId();
+  assert.equal(tracker.isLatest(first), false);
+  assert.equal(tracker.isLatest(second), true);
+  tracker.release(first);
+  assert.equal(tracker.isLatest(second), true);
 });

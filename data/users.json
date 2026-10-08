@@ -1,6 +1,55 @@
 [
-  {"id":"teacher_001","role":"teacher","firstName":"Toms","lastName":"Skolotājs","email":"toms.ricards@vtdt.edu.lv","groupIds":["group_ipa23","group_ipb23"],"githubUsername":null,"deskplanUserId":null},
-  {"id":"student_001","role":"student","firstName":"Jānis","lastName":"Bērziņš","email":"janis@devtrack.local","groupIds":["group_ipa23"],"githubUsername":"janisdev","deskplanUserId":"dp_101"},
-  {"id":"student_002","role":"student","firstName":"Anna","lastName":"Kalniņa","email":"anna@devtrack.local","groupIds":["group_ipa23"],"githubUsername":"annakdev","deskplanUserId":"dp_102"},
-  {"id":"student_003","role":"student","firstName":"Mārtiņš","lastName":"Ozols","email":"martins@devtrack.local","groupIds":["group_ipb23"],"githubUsername":"martinso","deskplanUserId":"dp_103"}
+  {
+    "id": "teacher_001",
+    "role": "teacher",
+    "firstName": "Toms",
+    "lastName": "Skolotājs",
+    "email": "toms.ricards@vtdt.edu.lv",
+    "groupIds": [
+      "group_ipa23",
+      "group_ipb23"
+    ],
+    "githubUsername": null,
+    "deskplanUserId": null,
+    "mustChangePassword": false,
+    "updatedAt": "2026-10-08T06:23:51.552Z",
+    "passwordHash": "scrypt:1cb9d5a9c0f210be2fe4c71fa781b6b1:694e678e63b8fb175bd90998778c8f34f161e9d510ca2ab5e3a1c69e02b6b37c53bb3daf510ebdb7005cbb9ebdb1cf20652aa649f99c3d8509e437e7eac404af",
+    "passwordChangedAt": "2026-10-08T06:24:13.141Z"
+  },
+  {
+    "id": "student_001",
+    "role": "student",
+    "firstName": "Jānis",
+    "lastName": "Bērziņš",
+    "email": "janis@devtrack.local",
+    "groupIds": [
+      "group_ipa23"
+    ],
+    "githubUsername": "janisdev",
+    "deskplanUserId": "dp_101"
+  },
+  {
+    "id": "student_002",
+    "role": "student",
+    "firstName": "Anna",
+    "lastName": "Kalniņa",
+    "email": "anna@devtrack.local",
+    "groupIds": [
+      "group_ipa23"
+    ],
+    "githubUsername": "annakdev",
+    "deskplanUserId": "dp_102"
+  },
+  {
+    "id": "student_003",
+    "role": "student",
+    "firstName": "Mārtiņš",
+    "lastName": "Ozols",
+    "email": "martins@devtrack.local",
+    "groupIds": [
+      "group_ipb23"
+    ],
+    "githubUsername": "martinso",
+    "deskplanUserId": "dp_103"
+  }
 ]

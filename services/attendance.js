@@ -96,7 +96,7 @@ export async function getAttendanceDashboard(
   };
 }
 
-export async function getStudentAttendance(user, { limit = 100 } = {}) {
+export async function getStudentAttendance(user) {
   if (user.role !== "student" || !user.membershipId)
     throw new AttendanceAccessError();
   const db = database();
@@ -123,8 +123,7 @@ export async function getStudentAttendance(user, { limit = 100 } = {}) {
         eq(attendanceSessions.schoolId, schoolFor(user)),
       ),
     )
-    .orderBy(desc(attendanceSessions.startsAt))
-    .limit(Math.min(250, limit));
+    .orderBy(desc(attendanceSessions.startsAt));
   const records = rows.map((row) =>
     recordDto(row.record, row.session, {
       classroomName: row.classroomName,

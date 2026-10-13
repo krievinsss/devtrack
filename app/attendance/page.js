@@ -63,10 +63,21 @@ export default async function AttendancePage() {
       />
       {error ? (
         <section className="panel attendance-setup">
-          <h2>Attendance needs a database update</h2>
-          <p>{error}</p>
-          <Link href="/settings" className="btn primary">
-            Open database settings
+          <h2>
+            {user.role === "student"
+              ? "Neizdevās ielādēt apmeklējuma datus"
+              : "Attendance is unavailable"}
+          </h2>
+          <p>
+            {user.role === "student"
+              ? "Lūdzu, mēģini vēlreiz vai atgriezies pēc brīža."
+              : error}
+          </p>
+          <Link
+            href={user.role === "student" ? "/attendance" : "/settings"}
+            className="btn primary"
+          >
+            {user.role === "student" ? "Mēģināt vēlreiz" : "Open settings"}
           </Link>
         </section>
       ) : (

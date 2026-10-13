@@ -9,6 +9,7 @@ import {
   Clock3,
   DoorOpen,
   History,
+  LoaderCircle,
   Play,
   Plus,
   RefreshCw,
@@ -718,58 +719,131 @@ function OpenLessonModal({ classrooms, groups, onClose, onCreated }) {
 }
 
 function StudentAttendance({ attendance }) {
-  const { records = [] } = attendance || {};
-  const [period, setPeriod] = useState("90");
+  const [data, setData] = useState(attendance || null);
+  const [loading, setLoading] = useState(!attendance);
+  const [loadError, setLoadError] = useState("");
+  const [dateRange, setDateRange] = useState("90");
+  const [lessonPeriod, setLessonPeriod] = useState("all");
   const [subject, setSubject] = useState("all");
+  const [page, setPage] = useState(0);
+  const [selectedLesson, setSelectedLesson] = useState(null);
   const [referenceNow] = useState(() => Date.now());
+  const records = data?.records || [];
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const response = await fetch("/api/attendance", { cache: "no-store" });
+      const body = await response.json();
+      if (!response.ok || !body.ok || !body.attendance)
+        throw new Error("Neizdevās ielādēt apmeklējuma datus.");
+      setData(body.attendance);
+    } catch {
+      setLoadError("Neizdevās ielādēt apmeklējuma datus.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (!attendance) void reload();
+    const refresh = () => void reload();
+    window.addEventListener("devtrack-attendance-refresh", refresh);
+    return () =>
+      window.removeEventListener("devtrack-attendance-refresh", refresh);
+  }, [attendance, reload]);
   const allLessons = useMemo(
     () =>
       records
         .flatMap((record) => {
-        const statuses = record.lessonStatuses?.length
-          ? record.lessonStatuses
-          : [
-              {
-                status: record.status,
-                startsAt: record.startsAt,
-                minutesLate: record.minutesLate,
-              },
-            ];
-        return statuses.map((lesson, index) => ({
-          ...lesson,
-          id: `${record.id}:${lesson.lessonId || lesson.period || index}`,
-          title: record.title || "Lesson",
-          subject: lesson.subject || record.subject || record.title || "Lesson",
-          groupName: record.groupName,
-          classroomName: record.classroomName,
-          deskCode: record.deskCode,
-          deskLabel: record.deskLabel,
-          startsAt: lesson.startsAt || record.startsAt,
-        }));
+          const statuses = record.lessonStatuses?.length
+            ? record.lessonStatuses
+            : [
+                {
+                  status: record.status,
+                  startsAt: record.startsAt,
+                  endsAt: record.endsAt,
+                  minutesLate: record.minutesLate,
+                },
+              ];
+          return statuses.map((lesson, index) => {
+            const startsAt = lesson.startsAt || record.startsAt,
+              endsAt = lesson.endsAt || record.endsAt;
+            return {
+              ...lesson,
+              id: `${record.id}:${lesson.lessonId || lesson.period || index}`,
+              title: record.title || "Lesson",
+              subject:
+                lesson.subject || record.subject || record.title || "Lesson",
+              groupName: record.groupName,
+              classroomName: record.classroomName,
+              deskCode: record.deskCode,
+              deskLabel: record.deskLabel,
+              checkedInAt: record.checkedInAt,
+              note: record.note,
+              startsAt,
+              endsAt,
+              unfinalizedAbsence:
+                lesson.status === "absent" &&
+                Number.isFinite(Date.parse(endsAt)) &&
+                Date.parse(endsAt) > referenceNow,
+            };
+          });
         })
+        .filter((lesson) => Date.parse(lesson.startsAt) <= referenceNow)
         .sort((a, b) => new Date(b.startsAt) - new Date(a.startsAt)),
-    [records],
+    [records, referenceNow],
   );
   const subjects = useMemo(
     () => [...new Set(allLessons.map((lesson) => lesson.subject))].sort(),
     [allLessons],
   );
+  const lessonPeriods = useMemo(
+    () =>
+      [...new Set(allLessons.map((lesson) => lesson.period).filter(Boolean))]
+        .map(String)
+        .sort((a, b) => Number(a) - Number(b)),
+    [allLessons],
+  );
   const lessons = useMemo(() => {
     const from =
-      period === "all" ? 0 : referenceNow - Number(period) * 86400000;
+      dateRange === "all" ? 0 : referenceNow - Number(dateRange) * 86400000;
     return allLessons.filter(
       (lesson) =>
         new Date(lesson.startsAt).getTime() >= from &&
-        (subject === "all" || lesson.subject === subject),
+        new Date(lesson.startsAt).getTime() <= referenceNow &&
+        (subject === "all" || lesson.subject === subject) &&
+        (lessonPeriod === "all" || String(lesson.period) === lessonPeriod),
     );
-  }, [allLessons, period, referenceNow, subject]);
-  const summary = useMemo(() => studentLessonSummary(lessons), [lessons]);
-  const weeks = useMemo(
-    () => studentAttendanceWeeks(lessons, referenceNow),
-    [lessons, referenceNow],
+  }, [allLessons, dateRange, lessonPeriod, referenceNow, subject]);
+  const countableLessons = useMemo(
+    () => lessons.filter((lesson) => !lesson.unfinalizedAbsence),
+    [lessons],
   );
+  const summary = useMemo(
+    () => studentLessonSummary(countableLessons),
+    [countableLessons],
+  );
+  const weeks = useMemo(
+    () => studentAttendanceWeeks(countableLessons, referenceNow),
+    [countableLessons, referenceNow],
+  );
+  const pageSize = 20,
+    pageCount = Math.ceil(lessons.length / pageSize),
+    currentPage = Math.min(page, Math.max(0, pageCount - 1)),
+    visibleLessons = lessons.slice(
+      currentPage * pageSize,
+      (currentPage + 1) * pageSize,
+    );
   return (
     <div className="student-attendance">
+      {loadError && data && (
+        <div className="attendance-notice danger" role="alert">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => void reload()}>
+            Mēģināt vēlreiz
+          </button>
+        </div>
+      )}
       <section className="panel student-attendance-hero">
         <div>
           <span className="eyebrow">MY DISCIPLINE</span>
@@ -781,24 +855,47 @@ function StudentAttendance({ attendance }) {
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <label>
-            <span>Period</span>
+            <span>Datumu intervāls</span>
             <select
-              value={period}
-              onChange={(event) => setPeriod(event.target.value)}
+              value={dateRange}
+              onChange={(event) => {
+                setDateRange(event.target.value);
+                setPage(0);
+              }}
             >
-              <option value="30">Last 30 days</option>
-              <option value="90">Last 90 days</option>
-              <option value="365">School year</option>
-              <option value="all">All time</option>
+              <option value="30">Pēdējās 30 dienas</option>
+              <option value="90">Pēdējās 90 dienas</option>
+              <option value="365">Mācību gads</option>
+              <option value="all">Viss laiks</option>
             </select>
           </label>
           <label>
-            <span>Subject</span>
+            <span>Stunda</span>
+            <select
+              value={lessonPeriod}
+              onChange={(event) => {
+                setLessonPeriod(event.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="all">Visas stundas</option>
+              {lessonPeriods.map((number) => (
+                <option key={number} value={number}>
+                  {number}. stunda
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Priekšmets</span>
             <select
               value={subject}
-              onChange={(event) => setSubject(event.target.value)}
+              onChange={(event) => {
+                setSubject(event.target.value);
+                setPage(0);
+              }}
             >
-              <option value="all">All subjects</option>
+              <option value="all">Visi priekšmeti</option>
               {subjects.map((name) => (
                 <option key={name} value={name}>
                   {name}
@@ -806,32 +903,46 @@ function StudentAttendance({ attendance }) {
               ))}
             </select>
           </label>
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() => void reload()}
+            disabled={loading}
+          >
+            <RefreshCw size={15} className={loading ? "spin" : ""} />
+            Atjaunot
+          </button>
         </div>
       </section>
+      {loading && data && (
+        <p className="attendance-load-status" role="status">
+          <LoaderCircle size={15} className="spin" /> Atjauno apmeklējuma datus…
+        </p>
+      )}
       <section className="attendance-metrics">
         <AttendanceMetric
           icon={CalendarDays}
-          label="Recorded lessons"
-          value={summary.total || 0}
-          tone="violet"
-        />
-        <AttendanceMetric
-          icon={CheckCircle2}
-          label="Present"
-          value={summary.present || 0}
+          label="Apmeklētas"
+          value={summary.attended || 0}
           tone="green"
         />
         <AttendanceMetric
+          icon={CheckCircle2}
+          label="Kavētas stundas"
+          value={summary.absent || 0}
+          tone="red"
+        />
+        <AttendanceMetric
           icon={Clock3}
-          label={`Late · ${summary.lateRate}%`}
+          label="Nokavējumi"
           value={summary.late || 0}
           tone="amber"
         />
         <AttendanceMetric
           icon={UserX}
-          label="Absent"
-          value={summary.absent || 0}
-          tone="red"
+          label="Nokavētās minūtes"
+          value={summary.lateMinutes || 0}
+          tone="violet"
         />
       </section>
       <section className="student-attendance-insights">
@@ -921,22 +1032,52 @@ function StudentAttendance({ attendance }) {
             <span className="eyebrow">Your record</span>
             <h3>Lesson history</h3>
           </div>
-          <strong>{summary.percentage || 0}% attendance</strong>
+          <strong>{lessons.length} ieraksti</strong>
         </div>
-        {lessons.length ? (
+        {loadError && !data ? (
+          <div className="attendance-history-empty" role="alert">
+            <p>{loadError}</p>
+            <button
+              type="button"
+              className="btn secondary"
+              onClick={() => void reload()}
+            >
+              Mēģināt vēlreiz
+            </button>
+          </div>
+        ) : loading && !data ? (
+          <div className="attendance-history-empty" role="status">
+            <LoaderCircle size={25} className="spin" />
+            <p>Ielādē apmeklējuma vēsturi…</p>
+          </div>
+        ) : lessons.length ? (
           <div className="attendance-history-table-wrap">
             <table className="attendance-history-table">
               <thead>
                 <tr>
                   <th>Datums</th>
                   <th>Priekšmets</th>
-                  <th>Pārstunda</th>
+                  <th>Stunda</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {lessons.map((record) => (
-                  <tr key={record.id}>
+                {visibleLessons.map((record) => (
+                  <tr
+                    key={record.id}
+                    tabIndex={0}
+                    role="button"
+                    aria-haspopup="dialog"
+                    aria-label={`${record.subject}, ${record.period ? `${record.period}. stunda` : "stunda"}, ${record.unfinalizedAbsence ? "stunda vēl nav beigusies" : attendanceStatusLabel(record.status)}. Atvērt detaļas.`}
+                    onClick={() => setSelectedLesson(record)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedLesson(record);
+                      }
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>
                       <time>{fmt(record.startsAt)}</time>
                     </td>
@@ -955,26 +1096,179 @@ function StudentAttendance({ attendance }) {
                       {record.period ? `${record.period}. stunda` : "—"}
                     </td>
                     <td>
-                      <span className={`attendance-status ${record.status}`}>
-                        {record.status}
+                      <span
+                        className={`attendance-status${record.unfinalizedAbsence ? "" : ` ${record.status}`}`}
+                      >
+                        {record.unfinalizedAbsence
+                          ? "Stunda vēl nav beigusies"
+                          : attendanceStatusLabel(record.status)}
                       </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <div
+              className="attendance-history-pagination"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+                padding: 12,
+              }}
+            >
+              <span aria-live="polite">
+                Rāda {currentPage * pageSize + 1}–
+                {Math.min((currentPage + 1) * pageSize, lessons.length)} no{" "}
+                {lessons.length}
+              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={currentPage === 0}
+                  onClick={() => setPage(currentPage - 1)}
+                >
+                  Iepriekšējā
+                </button>
+                <span>
+                  {currentPage + 1}/{pageCount}
+                </span>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={currentPage + 1 >= pageCount}
+                  onClick={() => setPage(currentPage + 1)}
+                >
+                  Nākamā
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : allLessons.length ? (
+          <div className="attendance-history-empty">
+            <History size={27} />
+            <h3>Nav ierakstu šai atlasei</h3>
+            <p>Maini datumu, stundas vai priekšmeta filtru.</p>
           </div>
         ) : (
           <div className="attendance-history-empty">
             <History size={27} />
-            <h3>No attendance yet</h3>
-            <p>
-              Your lessons will appear here after your first desk QR check-in.
-            </p>
+            <h3>Apmeklējuma ierakstu vēl nav</h3>
+            <p>Stundas šeit parādīsies pēc apmeklējuma reģistrēšanas.</p>
           </div>
         )}
       </section>
+      {selectedLesson && (
+        <StudentLessonDetails
+          lesson={selectedLesson}
+          onClose={() => setSelectedLesson(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function StudentLessonDetails({ lesson, onClose }) {
+  const format = (value) =>
+    value
+      ? new Intl.DateTimeFormat("lv-LV", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Europe/Riga",
+        }).format(new Date(value))
+      : "—";
+  return (
+    <div
+      className="modal-backdrop attendance-modal-backdrop"
+      onMouseDown={onClose}
+    >
+      <section
+        className="attendance-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="student-lesson-detail-title"
+        onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.key === "Escape" && onClose()}
+      >
+        <header>
+          <div>
+            <span className="eyebrow">Apmeklējuma ieraksts</span>
+            <h2 id="student-lesson-detail-title">{lesson.subject}</h2>
+          </div>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onClose}
+            aria-label="Aizvērt"
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <div className="attendance-modal-grid">
+          <label>
+            <span>Datums un sākums</span>
+            <strong>{format(lesson.startsAt)}</strong>
+          </label>
+          <label>
+            <span>Beigas</span>
+            <strong>{format(lesson.endsAt)}</strong>
+          </label>
+          <label>
+            <span>Stunda</span>
+            <strong>{lesson.period ? `${lesson.period}. stunda` : "—"}</strong>
+          </label>
+          <label>
+            <span>Statuss</span>
+            <strong>
+              {lesson.unfinalizedAbsence
+                ? "Stunda vēl nav beigusies"
+                : attendanceStatusLabel(lesson.status)}
+            </strong>
+          </label>
+          <label>
+            <span>Grupa un klase</span>
+            <strong>
+              {[lesson.groupName, lesson.classroomName].filter(Boolean).join(" · ") || "—"}
+            </strong>
+          </label>
+          {lesson.checkedInAt && (
+            <label>
+              <span>Atzīmēšanās laiks</span>
+              <strong>{format(lesson.checkedInAt)}</strong>
+            </label>
+          )}
+          {lesson.status === "late" && (
+            <label>
+              <span>Nokavējums</span>
+              <strong>{Number(lesson.minutesLate || 0)} min</strong>
+            </label>
+          )}
+        </div>
+        {lesson.note && <p>{lesson.note}</p>}
+        <footer>
+          <button type="button" className="btn secondary" onClick={onClose}>
+            Aizvērt
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function attendanceStatusLabel(status) {
+  return (
+    {
+      present: "Apmeklēta",
+      late: "Nokavēta",
+      absent: "Neapmeklēta",
+      excused: "Attaisnota",
+    }[status] || "Nav datu"
   );
 }
 

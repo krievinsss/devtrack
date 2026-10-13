@@ -177,11 +177,18 @@ export default function TimeSessionModal({
             </label>
           </div>
         </div>
-        {(!classrooms.length || !ranked.length) && (
-          <div className="attendance-form-error">
-            No matching timetable lessons or classrooms are available.
+        {!classrooms.length ? (
+          <div className="attendance-form-error" role="alert">
+            Jūsu kontam nav pieejama neviena aktīva klase. Palūdziet
+            administratoram sadaļā Classrooms piešķirt jums piekļuvi aktīvai
+            klasei.
           </div>
-        )}
+        ) : !ranked.length ? (
+          <div className="attendance-form-error" role="alert">
+            Šai nedēļai nav atrastas stundu saraksta stundas. Pārbaudiet
+            skolotāja konta piesaisti stundu sarakstam.
+          </div>
+        ) : null}
         <footer>
           <button type="button" className="btn secondary" onClick={onClose}>
             Cancel

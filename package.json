@@ -15,7 +15,7 @@
     "test:db": "node --test db/*.test.js"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
+    "@neondatabase/serverless": "^1.2.0",
     "@vercel/blob": "^2.8.1",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",

@@ -45,6 +45,7 @@ const fmt = (value) =>
         timeZone: "Europe/Riga",
       }).format(new Date(value))
     : "—";
+  const EMPTY_ATTENDANCE_RECORDS = [];
 
 export default function AttendanceBoard({
   initialAttendance,
@@ -720,7 +721,7 @@ function OpenLessonModal({ classrooms, groups, onClose, onCreated }) {
 
 function StudentAttendance({ attendance }) {
   const [data, setData] = useState(attendance || null);
-  const [loading, setLoading] = useState(!attendance);
+  const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [dateRange, setDateRange] = useState("90");
   const [lessonPeriod, setLessonPeriod] = useState("all");
@@ -728,7 +729,7 @@ function StudentAttendance({ attendance }) {
   const [page, setPage] = useState(0);
   const [selectedLesson, setSelectedLesson] = useState(null);
   const [referenceNow] = useState(() => Date.now());
-  const records = data?.records || [];
+  const records = data?.records || EMPTY_ATTENDANCE_RECORDS;
   const reload = useCallback(async () => {
     setLoading(true);
     setLoadError("");
@@ -745,12 +746,11 @@ function StudentAttendance({ attendance }) {
     }
   }, []);
   useEffect(() => {
-    if (!attendance) void reload();
     const refresh = () => void reload();
     window.addEventListener("devtrack-attendance-refresh", refresh);
     return () =>
       window.removeEventListener("devtrack-attendance-refresh", refresh);
-  }, [attendance, reload]);
+  }, [reload]);
   const allLessons = useMemo(
     () =>
       records
@@ -865,7 +865,7 @@ function StudentAttendance({ attendance }) {
             >
               <option value="30">Pēdējās 30 dienas</option>
               <option value="90">Pēdējās 90 dienas</option>
-              <option value="365">Mācību gads</option>
+              <option value="365">Pēdējās 365 dienas</option>
               <option value="all">Viss laiks</option>
             </select>
           </label>

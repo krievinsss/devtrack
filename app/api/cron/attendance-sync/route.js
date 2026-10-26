@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
-import { closeExpiredAutomaticAttendance, syncAutomaticAttendanceForTeacher } from "@/services/attendanceAutomation";
+import {
+  closeExpiredAutomaticAttendance,
+  summarizeAttendanceAutomationRun,
+  syncAutomaticAttendanceForTeacher,
+} from "@/services/attendanceAutomation";
 import { getClassrooms } from "@/services/classrooms";
 import { getGroups } from "@/services/groups";
 import { getUsers } from "@/services/users";
 import { getCoreUserWithAccess } from "@/services/coreDirectory";
 import { cronAuthorized, runAttendanceCron } from "@/lib/attendanceCron";
+import { writeJson } from "@/lib/storage";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -20,8 +25,14 @@ export async function GET(request) {
   try {
     const result = await runAttendanceCron({ getGroups, getUsers, getCoreUserWithAccess,
       getClassrooms, closeExpiredAutomaticAttendance, syncAutomaticAttendanceForTeacher });
+    const summary = summarizeAttendanceAutomationRun({ ...result, durationMs: Date.now() - startedAt });
+    try {
+      await writeJson("attendanceAutomationMonitor", summary);
+    } catch (error) {
+      console.error("attendance-cron monitor write failed", error);
+    }
     console[result.ok ? "info" : "error"]("attendance-cron", JSON.stringify({ ...result, durationMs: Date.now() - startedAt }));
-    return NextResponse.json(result, { status: result.ok ? 200 : 500, headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ ...result, monitor: summary }, { status: result.ok ? 200 : 500, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("attendance-cron failed", error);
     return NextResponse.json({ ok: false, error: "Attendance sync failed" }, { status: 500 });

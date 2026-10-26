@@ -3,7 +3,10 @@ import {
   classroomForTimetableRoom,
   isTimetableBlockActive,
   sameScheduledSession,
+  summarizeAttendanceAutomationRun,
 } from "@/lib/attendanceAutomation";
+
+export { summarizeAttendanceAutomationRun };
 import {
   closeAttendanceSession,
   getAttendanceDashboard,
@@ -29,7 +32,18 @@ export async function reconcileAutomaticAttendance(user, now = new Date()) {
     classrooms,
     now,
   );
-  return { closed, synced };
+  return {
+    ok: !closed.some((item) => item.status === "error") && !synced.skipped.some((skip) => skip.reason !== "already-created"),
+    closed,
+    results: [synced],
+    summary: summarizeAttendanceAutomationRun({
+      ok: !closed.some((item) => item.status === "error") && !synced.skipped.some((skip) => skip.reason !== "already-created"),
+      closed,
+      results: [synced],
+      ranAt: now.toISOString(),
+      durationMs: 0,
+    }),
+  };
 }
 
 export async function closeExpiredAutomaticAttendance(user, now = new Date()) {

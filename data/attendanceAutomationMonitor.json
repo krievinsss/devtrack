@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "ranAt": "2026-10-26T09:28:26.638Z",
+  "durationMs": 7636,
+  "openedCount": 0,
+  "closedCount": 0,
+  "skippedCount": 1,
+  "errors": [],
+  "skipReasons": [
+    {
+      "teacherId": "teacher_001",
+      "blockId": "57005",
+      "reason": "already-created"
+    }
+  ],
+  "summary": "Opened 0, closed 0, skipped 1."
+}

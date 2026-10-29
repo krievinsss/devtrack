@@ -10,6 +10,7 @@ const SPOTIFY_SEARCH_COOLDOWN_MS=2000;
 const runtime=globalThis.__devtrackSpotifyRuntime||(globalThis.__devtrackSpotifyRuntime={backoffUntil:0,backoffCheckedAt:0,searches:new Map(),snapshots:new Map()});
 
 function config(){
+  if(process.env.DEVTRACK_DEMO_MODE==='true') throw new Error('Spotify integration is disabled in the isolated demo environment');
   const clientId=process.env.SPOTIFY_CLIENT_ID;
   const clientSecret=process.env.SPOTIFY_CLIENT_SECRET;
   const redirectUri=process.env.SPOTIFY_REDIRECT_URI;

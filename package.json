@@ -10,7 +10,12 @@
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db-migrate.mjs",
+    "db:migrate:demo": "node scripts/db-migrate.mjs --demo",
     "db:check": "node scripts/db-check.mjs",
+    "seed:semester": "node scripts/seed-semester.mjs",
+    "seed:semester:demo": "node scripts/seed-semester-demo.mjs",
+    "dev:demo": "node scripts/start-demo.mjs",
+    "test:semester-seed": "node --test lib/semesterSeed.test.js",
     "test:access": "node --test db/access.test.js",
     "test:db": "node --test db/*.test.js"
   },

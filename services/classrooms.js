@@ -25,6 +25,17 @@ export async function getClassrooms(user,{includeInactive=true}={}){
   return hydrateClassroomList(db,rows,user);
 }
 
+export async function getClassroomsForAttendanceAutomation(user){
+  return database().select({
+    id:classrooms.id,
+    name:classrooms.name,
+    active:classrooms.active,
+  }).from(classrooms).where(and(
+    eq(classrooms.schoolId,schoolFor(user)),
+    eq(classrooms.active,true),
+  )).orderBy(asc(classrooms.name));
+}
+
 export async function getClassroom(user,classroomId){return readClassroom(database(),user,classroomId)}
 
 export async function getClassroomStaffOptions(user){

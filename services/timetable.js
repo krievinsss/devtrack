@@ -1,4 +1,5 @@
 import "server-only";
+import { readJson } from "@/lib/storage";
 
 const DEFAULT_API_URL = "https://api.projekts.area.lv";
 const DEFAULT_TEACHER_NAME = "Toms Ričards Krieviņš";
@@ -71,6 +72,18 @@ export async function timetableForUser(
 ) {
   const monday = mondayOf(weekValue),
     identity = timetableIdentity(user, groups);
+  if (process.env.DEVTRACK_DEMO_MODE === "true") {
+    const friday = addDays(monday, 4);
+    const lessons = await demoLessonsForRange(user, groups, monday, friday);
+    const demoIdentity = {
+      type: user.role === "student" ? "group" : "teacher",
+      names: [...new Set(lessons.map((lesson) =>
+        user.role === "student" ? lesson.group : lesson.teacher,
+      ))],
+      label: user.role === "student" ? "Demo group timetable" : "Demo teacher timetable",
+    };
+    return timetableResult({ monday, identity: demoIdentity, lessons });
+  }
   const base = String(process.env.TIMETABLE_API_URL || DEFAULT_API_URL).replace(
     /\/$/,
     "",
@@ -122,6 +135,8 @@ export async function timetableForUser(
 }
 
 export async function timetableForRange(user, groups, start, end) {
+  if (process.env.DEVTRACK_DEMO_MODE === "true")
+    return demoLessonsForRange(user, groups, start, end);
   const identity = timetableIdentity(user, groups);
   if (!identity.names.length) return [];
   const base = String(process.env.TIMETABLE_API_URL || DEFAULT_API_URL).replace(
@@ -161,14 +176,40 @@ export async function timetableForRange(user, groups, start, end) {
   );
 }
 
-export function attendanceBlocksFromTimetable(lessons, groups) {
+async function demoLessonsForRange(user, groups, start, end) {
+  const rows = await readJson("timetable", []);
+  const groupIds = new Set(
+    user.role === "admin"
+      ? groups.map((group) => group.id)
+      : user.groupIds || [],
+  );
+  const groupNames = new Set(
+    groups.filter((group) => groupIds.has(group.id)).map((group) => group.name),
+  );
+  return rows
+    .filter((lesson) =>
+      lesson.date >= start &&
+      lesson.date <= end &&
+      groupNames.has(lesson.group),
+    )
+    .map((lesson) => ({ ...lesson }))
+    .sort((left, right) =>
+      left.date.localeCompare(right.date) || left.start.localeCompare(right.start),
+    );
+}
+
+export function attendanceBlocksFromTimetable(
+  lessons,
+  groups,
+  { includeUnlinked = false } = {},
+) {
   const groupIds = new Map(
       (groups || []).map((group) => [normalizeIdentity(group.name), group.id]),
     ),
     blocks = [];
   for (const lesson of lessons || []) {
     const groupId = groupIds.get(normalizeIdentity(lesson.group));
-    if (!groupId) continue;
+    if (!groupId && !includeUnlinked) continue;
     const item = {
       id: lesson.id,
       period: lesson.period,
@@ -190,6 +231,7 @@ export function attendanceBlocksFromTimetable(lessons, groups) {
       previous.date === item.date &&
       previous.subject === item.subject &&
       previous.groupId === item.groupId &&
+      previous.group === item.group &&
       normalizeIdentity(previous.room) === normalizeIdentity(item.room) &&
       Number(item.period) === Number(last.period) + 1 &&
       gap >= 0 &&

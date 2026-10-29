@@ -29,6 +29,7 @@ import "./attendance-stats.css";
 import "./student-checkin.css";
 import "./discipline-analytics.css";
 import "./journal.css";
+import "./attendance-automation.css";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

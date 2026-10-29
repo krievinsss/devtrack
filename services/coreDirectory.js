@@ -105,7 +105,7 @@ export async function deleteCoreStudent(studentId,{actorUserId=null}={}){
 }
 
 export async function mirrorCoreDirectoryToBlob(){
-  if(!process.env.VERCEL||!databaseConfigured()||coreStorageMode()==='blob')return false;
+  if((!process.env.VERCEL&&process.env.DEVTRACK_DEMO_MODE!=='true')||!databaseConfigured()||coreStorageMode()==='blob')return false;
   try{
     const directory=await loadDirectory(database(),defaultSchoolId());if(!directory)return false;
     await Promise.all([writeJson('users',directory.users.map(stripDatabaseMetadata)),writeJson('groups',directory.groups.map(stripDatabaseMetadata))]);return true;

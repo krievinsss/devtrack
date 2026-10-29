@@ -6,7 +6,11 @@ import { auditLogs,groupMemberships,groups,membershipModuleAccess,membershipPerm
 const USER_RESERVED_KEYS=new Set(['id','email','firstName','lastName','passwordHash','platformRole','role','schoolRole','active','mustChangePassword','groupIds','membershipId','membershipStatus','schoolId','createdAt','updatedAt','moduleKeys','permissionKeys','hasPassword']);
 const GROUP_RESERVED_KEYS=new Set(['id','schoolId','name','academicYear','active','studentIds','teacherIds','createdAt','updatedAt']);
 
-export function defaultSchoolId(){return String(process.env.DEVTRACK_SCHOOL_ID||'school_vtdt').trim()}
+export function defaultSchoolId(){
+  if(process.env.DEVTRACK_DEMO_MODE==='true')
+    return String(process.env.DEVTRACK_DEMO_SCHOOL_ID||'school_investor_demo').trim();
+  return String(process.env.DEVTRACK_SCHOOL_ID||'school_vtdt').trim();
+}
 export function legacyRoleForSchoolRole(role){return role==='school_admin'?'admin':role==='teacher'?'teacher':'student'}
 export function schoolRoleForLegacyRole(role){return ['admin','school_admin'].includes(role)?'school_admin':role==='teacher'?'teacher':'student'}
 

@@ -15,7 +15,7 @@ export async function POST(req){
     if(isText&&body.data.length>250000)return fail('TXT file is too large.',400);
     if(isImage&&body.data.length>8_000_000)return fail('Image is too large. Use an image under about 5 MB.',400);
 
-    if(!process.env.OPENAI_API_KEY){
+    if(process.env.DEVTRACK_DEMO_MODE==='true'||!process.env.OPENAI_API_KEY){
       if(isText)return ok({criteria:parseTextRubric(decodeText(body.data)),source:'text-fallback'});
       return fail('OPENAI_API_KEY is required for image rubric import.',503);
     }

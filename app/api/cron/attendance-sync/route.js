@@ -4,12 +4,12 @@ import {
   summarizeAttendanceAutomationRun,
   syncAutomaticAttendanceForTeacher,
 } from "@/services/attendanceAutomation";
-import { getClassrooms } from "@/services/classrooms";
+import { getClassroomsForAttendanceAutomation } from "@/services/classrooms";
 import { getGroups } from "@/services/groups";
 import { getUsers } from "@/services/users";
 import { getCoreUserWithAccess } from "@/services/coreDirectory";
 import { cronAuthorized, runAttendanceCron } from "@/lib/attendanceCron";
-import { writeJson } from "@/lib/storage";
+import { recordAttendanceAutomationRun } from "@/services/attendanceAutomationMonitor";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -24,17 +24,37 @@ export async function GET(request) {
   const startedAt = Date.now();
   try {
     const result = await runAttendanceCron({ getGroups, getUsers, getCoreUserWithAccess,
-      getClassrooms, closeExpiredAutomaticAttendance, syncAutomaticAttendanceForTeacher });
+      getClassrooms: getClassroomsForAttendanceAutomation,
+      closeExpiredAutomaticAttendance, syncAutomaticAttendanceForTeacher });
     const summary = summarizeAttendanceAutomationRun({ ...result, durationMs: Date.now() - startedAt });
     try {
-      await writeJson("attendanceAutomationMonitor", summary);
+      await recordAttendanceAutomationRun({ ...result, durationMs: Date.now() - startedAt }, { trigger: "cron" });
     } catch (error) {
-      console.error("attendance-cron monitor write failed", error);
+      console.error("attendance-cron monitor write failed", { name: error?.name || "Error" });
     }
-    console[result.ok ? "info" : "error"]("attendance-cron", JSON.stringify({ ...result, durationMs: Date.now() - startedAt }));
-    return NextResponse.json({ ...result, monitor: summary }, { status: result.ok ? 200 : 500, headers: { "Cache-Control": "no-store" } });
+    console[result.ok ? "info" : "error"]("attendance-cron", JSON.stringify({
+      ok: summary.ok,
+      ranAt: summary.ranAt,
+      durationMs: summary.durationMs,
+      openedCount: summary.openedCount,
+      closedCount: summary.closedCount,
+      skippedCount: summary.skippedCount,
+    }));
+    return NextResponse.json({ ok: summary.ok, monitor: summary }, { status: summary.ok ? 200 : 500, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("attendance-cron failed", error);
+    console.error("attendance-cron failed", { name: error?.name || "Error" });
+    try {
+      await recordAttendanceAutomationRun({
+        ok: false,
+        ranAt: new Date().toISOString(),
+        results: [{ error: "Automation run failed before completion" }],
+        durationMs: Date.now() - startedAt,
+      }, { trigger: "cron" });
+    } catch (storageError) {
+      console.error("attendance-cron failure record write failed", {
+        name: storageError?.name || "Error",
+      });
+    }
     return NextResponse.json({ ok: false, error: "Attendance sync failed" }, { status: 500 });
   }
 }

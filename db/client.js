@@ -8,10 +8,12 @@ import * as schema from './schema';
 let cachedDatabase=null;
 
 export function runtimeDatabaseUrl(){
+  if(demoMode())return String(process.env.DEVTRACK_DEMO_DATABASE_URL||'').trim();
   return firstEnvironmentValue('DEVTRACK_DATABASE_URL','DEVTRACK_POSTGRES_URL','DATABASE_URL','POSTGRES_URL');
 }
 
 export function migrationDatabaseUrl(){
+  if(demoMode())return String(process.env.DEVTRACK_DEMO_DATABASE_URL_UNPOOLED||process.env.DEVTRACK_DEMO_DATABASE_URL||'').trim();
   return firstEnvironmentValue('DEVTRACK_DATABASE_URL_UNPOOLED','DEVTRACK_POSTGRES_URL_NON_POOLING','DEVTRACK_POSTGRES_PRISMA_URL','DEVTRACK_DATABASE_URL','DATABASE_URL');
 }
 
@@ -57,3 +59,5 @@ function firstEnvironmentValue(...names){
   for(const name of names){const value=String(process.env[name]||'').trim();if(value)return value}
   return '';
 }
+
+function demoMode(){return process.env.DEVTRACK_DEMO_MODE==='true'}

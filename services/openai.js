@@ -13,7 +13,7 @@ export async function runAiReview(projectId,user,teacherPrompt=''){
   const assignment=project.assignmentId?await getAssignment(project.assignmentId):null;
   const formative=assignment?await getFormativeEvents(assignment.id):[];
   const feedback=await getFeedback(projectId);
-  if(!process.env.OPENAI_API_KEY){const demo=(await readJson('aiReviews',[])).find(r=>r.projectId===projectId);if(demo)return {...demo,id:`review_${crypto.randomUUID()}`,createdAt:new Date().toISOString(),demo:true};throw new Error('OPENAI_API_KEY is not configured');}
+  if(process.env.DEVTRACK_DEMO_MODE==='true'||!process.env.OPENAI_API_KEY){const demo=(await readJson('aiReviews',[])).find(r=>r.projectId===projectId);if(demo)return {...demo,id:`review_${crypto.randomUUID()}`,createdAt:new Date().toISOString(),demo:true};throw new Error('OPENAI_API_KEY is not configured');}
   const tree=(await repoTree(projectId,'')).slice(0,100);const useful=tree.filter(x=>x.type==='blob'&&/\.(js|jsx|ts|tsx|php|py|sql|md|json)$/.test(x.path)).slice(0,16);const files=[];for(const f of useful){try{const d=await repoFile(projectId,f.path);files.push({path:f.path,content:d.content.slice(0,12000)});}catch{}}
   const commits=(await readJson('commits',[])).filter(c=>c.repositoryId===projectId).slice(0,40);
   const client=new OpenAI({apiKey:process.env.OPENAI_API_KEY});

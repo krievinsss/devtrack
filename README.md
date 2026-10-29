@@ -32,6 +32,12 @@ Student tabs:
 
 The student dashboard also surfaces recent project diary updates so newly announced formative assessments and newly published results are visible without opening every project.
 
+## Attendance automation monitoring
+
+The attendance cron checks active timetable lessons every five minutes. This cadence requires a Vercel plan that supports schedules more frequent than once per day; Hobby deployments only support daily cron schedules. Authorized teachers can review their own status in **Settings**; school administrators can review the day's lessons, filter the last 100 run records, inspect opened/closed/skipped details, and recheck a specific lesson. Rechecks use the same timetable reconciliation service as cron, so an existing session is not opened twice.
+
+Automatic closure is limited to sessions whose audit record identifies them as automation-created. Manually opened or cancelled sessions are left unchanged. Timetable and classroom mismatch reasons are shown in the monitor, while sensitive runtime configuration is never returned by its API.
+
 ## Private teacher review
 
 Teacher/admin users can run a private code review. The server sends structured evidence to the configured OpenAI API:
@@ -69,6 +75,47 @@ The teacher signs in with `DEVTRACK_TEACHER_EMAIL` (defaults to
 `toms.ricards@vtdt.edu.lv`) and the initial `DEVTRACK_TEACHER_PASSWORD`. After
 sign-in, change the password in **Settings → Change password**. The saved
 password is hashed and takes precedence over the bootstrap environment value.
+
+## Synthetic semester data
+
+Create a connected six-month dataset for local demonstrations across users and groups, assignments and projects, attendance, assessments, feedback, commits, AI reviews, gamification, classroom music, StackDev, repository previews, audit logs and attendance automation history. Dates default to the six months ending today; use `--from` and `--to` to choose another interval.
+
+```bash
+npm run seed:semester -- --preview
+npm run seed:semester -- --write
+npm run seed:semester -- --apply
+```
+
+Preview is the default and does not write files. `--write` creates an ignored, synthetic fixture at `data/semester-seed.generated.json`; this is safe even when database settings are present because it only writes that fixture and does not contact a database or external integration. `--apply` merges records using reserved `seed_6m_` IDs into local JSON and versioned event storage, so rerunning replaces the same generated records without duplicating them. It preserves ordinary records and limits merged attendance automation history to 100 entries. `--apply` refuses production, Vercel Blob and Neon configurations because those require different storage backends. Accounts use reserved `.test` addresses and have no password hashes; configure local JSON storage to use the generated account and group fixtures. Settings, credentials, live Spotify snapshots, and Neon relational tables are deliberately not seeded.
+
+### Isolated investor demo with Neon and Blob
+
+The investor demo runs against a **separate Neon branch/database and a separate Vercel Blob store**. It uses a dedicated Neon school (`school_investor_demo` by default) and the isolated `devtrack/investor-demo/` Blob namespace. Demo mode never falls back to the normal Neon URL, Blob token, external timetable API, or local `data/` files. It seeds synthetic lessons, classrooms and desks, recent attendance history, and the same connected JSON-backed teaching domains as the fixture.
+
+1. Create a separate Neon branch/database and Vercel Blob store for the demo. Do not copy production credentials into the demo configuration.
+2. Copy `.env.demo.example` to `.env.demo.local` and fill in the demo database URLs, demo Blob token, a strong `DEVTRACK_DEMO_PASSWORD` (at least 12 characters), and an `AUTH_SECRET` (at least 32 characters). `.env.demo.local` is ignored by git.
+3. Initialize the demo schema and permission catalog:
+
+   ```bash
+   npm run db:migrate:demo
+   ```
+
+4. Generate the connected synthetic semester data in Neon and Blob:
+
+   ```bash
+   npm run seed:semester:demo
+   ```
+
+   This only writes to the dedicated demo school and Blob namespace; it aborts on unmarked ID, email, group, or school conflicts and does not delete ordinary data. The first demo teacher is a school administrator.
+5. Start the isolated demo app:
+
+   ```bash
+   npm run dev:demo
+   ```
+
+   Open `http://localhost:3000`. Sign in with `teacher1@semester-demo.test` and `DEVTRACK_DEMO_PASSWORD`. The application uses the same dedicated Neon URL, Blob token and demo-school ID loaded from `.env.demo.local`.
+
+The original `seed:semester -- --apply` command remains limited to local JSON and intentionally refuses configured Neon/Blob/production environments. The demo commands are separate so they cannot accidentally use the normal `.env.local` storage.
 
 ## Production storage
 

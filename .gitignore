@@ -3,6 +3,8 @@ node_modules
 .env*
 .env.local* git push --set-upstream origin attendance-requests
 !.env.example
+!.env.demo.example
 .vercel
 *.log
+data/semester-seed.generated.json
 .DS_Store
